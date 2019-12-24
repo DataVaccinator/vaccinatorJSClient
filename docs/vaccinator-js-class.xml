@@ -1,0 +1,623 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<book version="5.0" xmlns="http://docbook.org/ns/docbook"
+      xmlns:xlink="http://www.w3.org/1999/xlink"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:svg="http://www.w3.org/2000/svg"
+      xmlns:m="http://www.w3.org/1998/Math/MathML"
+      xmlns:html="http://www.w3.org/1999/xhtml"
+      xmlns:db="http://docbook.org/ns/docbook">
+  <info>
+    <title>@PRODUCT@ protocol</title>
+
+    <author>
+      <personname><firstname>Various</firstname>
+      <surname>authors</surname></personname>
+
+      <email>v.schmid@inspirant.de</email>
+
+      <affiliation>
+        <orgname>Volker Schmid</orgname>
+      </affiliation>
+    </author>
+
+    <pubdate>@DATE@</pubdate>
+
+    <productnumber>@VERSION@</productnumber>
+  </info>
+
+  <chapter>
+    <title>Content</title>
+
+    <toc/>
+
+    <para/>
+  </chapter>
+
+  <chapter>
+    <title>JavaScript Client API</title>
+
+    <para>The Client API is the interface that is provided by the @PRODUCT@
+    JavaScript API for client software developers.</para>
+
+    <para>Include the @PRODUCT@ JavaScript API and all needed classes into
+    your existing application using this in the &lt;head&gt; section:</para>
+
+    <programlisting>&lt;!-- start vaccinator include --&gt;
+&lt;script src="localforage.min.js"&gt;&lt;/script&gt;
+&lt;script src="forge-sha256.min.js"&gt;&lt;/script&gt;
+&lt;script src="jschacha20.js"&gt;&lt;/script&gt;
+&lt;script src="vaccinator_api.js"&gt;&lt;/script&gt;
+&lt;!-- end vaccinator include --&gt;</programlisting>
+
+    <para>Now, there is a new class <literal>@PRODUCT@</literal>
+    available.</para>
+
+    <para>Please note that the <emphasis>localforage.min.js</emphasis> is for
+    local database access, the <emphasis>jchacha20.js</emphasis> is for
+    encryption, the <emphasis>forge-sha256.min.js</emphasis> is for providing
+    hash algorithm and <emphasis>vaccinator.js</emphasis> is the final class code
+    you want to use.</para>
+
+    <para>All class functions except the validateAppId() function are
+    asynchronous and return a promise. Don't forget to wrap a try/catch block
+    around your class calls to handle potential errors thrown by the @PRODUCT@
+    class like in this example:</para>
+
+    <programlisting>try {
+  var a = new vaccinator();
+  a.init("https://serviceprovider.com/service.php", "username", "appid", "password", false)
+  .then(function() {
+    console.log("Successfully initialized vaccinator class");
+  }
+} catch (e) {
+  // catch any vaccinator class errors from here. e is vaccinatorError class.
+  console.error(e);
+}</programlisting>
+
+    <para>The vaccinator class offers the following functions:</para>
+
+    <section>
+      <title>init</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Initialize a new @PRODUCT@ session.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(string) serviceURL, (string) user-identifier, (optional
+              string) app-id, (optional string) password, optional boolean)
+              debugMode</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (boolean) true = success</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry><para><literal>serviceURl</literal> is the URL where the
+              API endpoint at the service provider is located. For example:
+              "https://service-provider.tld/protocol". All POST calls of the
+              API will be sent to this destination. Please note that "same
+              origin" policy might affect this. In the best case, this is the
+              same domain than your app is running
+              at.</para><para><literal>user-identifier</literal> is some
+              mandatory identifier that the class is using to handle different
+              aspects of saving user related information (like app-id). Also,
+              the class is submitting this information as
+              <literal>uid</literal> parameter in all protocol calls to the
+              service provider. We suggest to use the name of the user who is
+              using your application (eg email
+              address).</para><para><literal>app-id</literal> is the end users
+              application password for additional encryption. The @PRODUCT@
+              class expects some app-id known. If not submitted or undefined,
+              the class is trying to get it from previous calls (local
+              database). It throws an error if this
+              fails.</para><para><literal>password</literal> is used to
+              encrypt the app-id in the local storage database. If not
+              submitted or undefined, the app-id will get stored without any
+              encryption (not recommended). We recommend to submit the
+              password the user entered for log-in to your application. By
+              this, the local database will not leak the app-id in case
+              someone is trying to read the browser database.</para><para>Set
+              <literal>debugMode</literal> to true in order to activate debug
+              output to browser console. Mainly for finding bugs by the
+              developer of @PRODUCT@ service class but maybe also helpful for
+              you.</para></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>userNew</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Create a new user entry.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(string) payload</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (string) PID</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry>The <literal>payload</literal> is some JSON encoded
+              dataset. It may contain personal information of a person. This
+              is then returned later by <literal>userGet</literal>.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>userUpdate</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Update an existing user entry.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(string) PID, (string) payload</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (string) PID</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry><para>The <literal>PID</literal> is the identifying
+              person ID (for example, previously returned by
+              userNew).</para><para>The <literal>payload</literal> is some
+              JSON encoded dataset. It may contain personal information of a
+              person. </para></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>userGet</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Retrieve the payload of a given user
+              entry.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(array) multiple PIDs or (string) PID</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (object array) payload</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry><para>The submitted <literal>PID</literal> is the
+              identifying person ID (previously returned by userNew). Multiple
+              PIDs can be submitted as array with multiple PIDs or a string
+              with multiple PIDs divided by blank.</para><para>The returned
+              payload is an associative object array with the
+              <literal>PID</literal> as key and some object as value. The
+              value object is having two fields: <literal>status</literal> (OK
+              or NOTFOUND) and <literal>data</literal> (the payload). If
+              <literal>status</literal> is NOTFOUND, data is
+              false.</para><para>This is a typical object array response like
+              displayed in Firefox console:</para><programlisting>0d52f1b0a314fba7d45e87ca5bf5e654:
+  Object { status: "OK", 
+           data: "{\"fn\":\"Spongebob\",\"ln\":\"Squarepants\"}" 
+         }
+1d52f1b0a314fba7d45e87ca5bf5e654: 
+  Object { status: "NOTFOUND", 
+           data: false 
+         }
+fb9a6fd4c504878b2a76d9e78af795bb: 
+  Object { status: "OK", 
+           data: "{\"fn\":\"Patrick\",\"ln\":\"Star\"}" 
+         }</programlisting><para>Access the results like
+              this:</para><para><literal>var status =
+              result['0d52f1b0a314fba7d45e87ca5bf5e654']['status];</literal></para></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>userDelete</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Delete the given user entry. </para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(array) multiple PIDs or (string) PID</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (array) PID(s)</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry>The <literal>PID</literal> is the identifying person ID
+              (for example, returned by userNew). Multiple PIDs can be
+              submitted as array with multiple PIDs or a string with multiple
+              PIDs divided by blank.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>userWipe</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Wipe the given user entry from the local cache
+              (does not delete data from @PRODUCT@ service!)</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(array) multiple PIDs or (string) PID</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (array) PID(s)</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry>The <literal>PID</literal> is the identifying person ID
+              (for example, returned by userNew). Multiple PIDs can be
+              submitted as array with multiple PIDs or a string with multiple
+              PIDs divided by blank. Please note that, if the
+              <literal>PID</literal> is requested after this was called, the
+              system will request it again from the @PRODUCT@ service and will
+              update the cache. A possible use case is, if you know that the
+              local cache is outdated for this <literal>PID</literal>, you can
+              force the system to refresh its cache by wiping the user with
+              this function.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>wipeCache</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Wipe all locally cached information.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(string) token (optional, unset or empty string to force
+              wipe)</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (boolean) true = cache was wiped, false =
+              cache stayed untouched</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry><para>This wipes all local cached information. In case
+              the given token (eg time stamp) is different to the one used
+              before, or even unset or empty, it will wipe the cache. There
+              are two use-cases:</para><para>1) If the service provider is
+              sending a time stamp (refer to "update person" @PRODUCT@
+              protocol function). In this case, call wipeCache() with the
+              given time stamp as token. If the token differs from last time,
+              this function will wipe the whole cache. New requests will
+              restore the cache step by step. By this, your local cache is
+              always up to date.</para><para>2) If the application was used in
+              Internet café or other security concerns are against permanent
+              local caching (please note that the caching massively increases
+              speed of the whole system). After the cache was wiped, all data
+              has to become requested from the @PRODUCT@ service again if
+              requested. Thus, please call this function (if needed) with no
+              token regularly after logout (in this situation).</para></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>changeAppId (not yet implemented)</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>This is trying to re-encode all payloads after the
+              app-id has changed.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(array) PIDs, (string) old app-id, (string) new app-id,
+              (reference) progressCallback</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (int) 0 = success, &gt;0 = error
+              code</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry><para>The app-id is used to encrypt the payload in
+              identity management. For whatever reason, if the app-id is
+              changing for a user, then all entries in identity management
+              need to become re-encrypted. Obviously, this is not to be done
+              on identity management place to protect the data. So it must be
+              done locally.</para><para>For this, the API class downloads and
+              decrypts all payloads. Then it logs out initializes again with
+              the new app-id. Then, all payloads are getting encrypted and
+              updated. </para><para><literal>PIDs</literal> is one or more
+              PIDs. Please submit as array. This list has to be complete! In
+              doubt, make sure you have the list of ALL PIDs for this
+              app-id.</para><para><literal>old app-id</literal> and
+              <literal>new app-id</literal> are the old and new app-id to use
+              for
+              re-encryption.</para><para><literal>progressCallback</literal>
+              is some JS function reference. It will get called if the
+              re-encryption is finished. In this case, you can bring back
+              functionality and remove any "please wait" notifications. Submit
+              false in case you do not want (not recommended).</para><para>The
+              whole process may take a long time, depending on the number of
+              people affected. Until the promise is fulfilled you should show
+              some "please wait" dialogue to tell the user that something is
+              going on in the background. </para><para><emphasis
+              role="bold">NOTE:</emphasis> It is important that this call
+              contains ALL PIDs assigned to the given app-id. If not, some
+              data in @PRODUCT@ service may stay encrypted with the old
+              app-id. In the worst case, this would cause serious data
+              loss.</para><para><emphasis role="bold">NOTE: </emphasis>In case
+              this function was interrupted, there is a chance that some
+              entries in @PRODUCT@ service may be encrypted with the new
+              app-id and other still with the old one. The API is making sure
+              that only payloads encrypted with the old app-id get
+              re-encrypted (by using the cs value from the payload). By this,
+              it is possible to call this function multiple times (with
+              exactly the same parameters) to fix any previous
+              interruption.</para></entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>getAppId</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Returns the app-id that is currently in
+              use.</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>-</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(promise) (string) app-id</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry>If no app-id is available, it throws an error!</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+
+    <section>
+      <title>validateAppId</title>
+
+      <informaltable colsep="1" frame="all" rowsep="1" tabstyle="jsonSpec">
+        <tgroup cols="2">
+          <colspec colwidth="178*"/>
+
+          <colspec colwidth="822*"/>
+
+          <tbody>
+            <row>
+              <entry align="right" bgcolor="#dddddd">Description:</entry>
+
+              <entry><para>Validates the checksum of the given
+              app-id</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Parameters:</entry>
+
+              <entry>(string) app-id</entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Return value:</entry>
+
+              <entry><para>(boolean) validity</para></entry>
+            </row>
+
+            <row>
+              <entry align="right" bgcolor="#dddddd">Info:</entry>
+
+              <entry>Returns true if the given app-id contains a valid
+              checksum. Returns false if not.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+  </chapter>
+
+  <chapter>
+    <title>Error handling</title>
+
+    <para>The vaccinator class throws error of type <literal>vaccinatorError</literal>
+    in case something goes wrong. The <literal>vaccinatorError</literal> inherits
+    the JavaScript Error class and adds two additional values:</para>
+
+    <para><emphasis role="bold">reason:</emphasis> It is one of the following
+    reasons of the error:</para>
+
+    <para><literal>VACCINATOR_SERVICE</literal> = The vaccinator service is the reason
+    for the problem. Check vaccinatorCode value for more details.</para>
+
+    <para><literal>VACCINATOR_INVALID</literal> = You very likely submitted some
+    invalid or missing parameter. Not vaccinator related but related to your
+    input.</para>
+
+    <para><literal>VACCINATOR_UNKNOWN</literal> = Error with no further
+    specification.</para>
+
+    <para><emphasis role="bold">vaccinatorCode: </emphasis>In case the reason was
+    VACCINATOR_SERVICE, this code contains the return code from vaccinator
+    service.</para>
+
+    <para>In general, if you get an error of reason VACCINATOR_SERVICE, you have to
+    validate the vaccinatorCode and maybe inform the user about some issues that
+    may go away in some time (try later). If you get some VACCINATOR_INVALID, you
+    very like passed in some parameter or values that do either not fit to the
+    rules or are invalid or of wrong type.</para>
+
+    <para/>
+  </chapter>
+</book>
