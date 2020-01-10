@@ -1,5 +1,5 @@
 author: Volker Schmid <v.schmid@inspirant.de>
-meta-json: {"author":["Volker Schmid <v.schmid@inspirant.de>"],"title":"vaccinator protocol"}
+
 title: vaccinator protocol
 
 Content
