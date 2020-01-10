@@ -19,12 +19,13 @@ class vaccinator {
 
     /**
      * Initialize the vaccinator class
+     * 
      * @param {string} url 
      * @param {string} userName
      * @param {string} appId (optional)
      * @param {string} password (optional)
      * @param {boolean} debugMode (optional)
-     * @return {boolean}
+     * @returns {boolean}
      */
     async init(url, userName, appId, password, debugMode) {
         // initialize the common parameters
@@ -64,8 +65,9 @@ class vaccinator {
     /**
      * Pushes new payload to vaccinator service and returns
      * generated app-id
+     * 
      * @param {string} payload 
-     * @return {promise}
+     * @returns {promise}
      */
     async userNew(payload) {
         if (payload === undefined || payload === "") {
@@ -87,7 +89,7 @@ class vaccinator {
                             "] to url ["+that.url+"]");
                 fetch(that.url, params)
                 .then(function(response) {
-                    if (response.status != 200) {
+                    if (response.status !== 200) {
                         throw(new vaccinatorError("userNew: URL request failed with status " + 
                                     response.status, VACCINATOR_SERVICE));
                     }
@@ -113,9 +115,10 @@ class vaccinator {
     /**
      * Updates new payload to vaccinator service and returns
      * pid app-id
+     * 
      * @param {string} pid
      * @param {string} payload 
-     * @return {promise}
+     * @returns {promise}
      */
     async userUpdate(pid, payload) {
         if (pid === undefined || pid === "" || 
@@ -139,7 +142,7 @@ class vaccinator {
                             "] to url ["+that.url+"]");
                 fetch(that.url, params)
                 .then(function(response) {
-                    if (response.status != 200) {
+                    if (response.status !== 200) {
                         throw(new vaccinatorError("userUpdate: URL request failed with status " + 
                                     response.status, VACCINATOR_SERVICE));
                     }
@@ -165,8 +168,9 @@ class vaccinator {
     /**
      * Updates new payload to vaccinator service and returns
      * pid app-id
+     * 
      * @param {*} pids
-     * @return {promise}
+     * @returns {promise}
      */
     async userDelete(pids) {
         if (pids === undefined || pids === "") {
@@ -191,7 +195,7 @@ class vaccinator {
                         "] to url ["+that.url+"]");
             fetch(that.url, params)
             .then(function(response) {
-                if (response.status != 200) {
+                if (response.status !== 200) {
                     throw(new vaccinatorError("userDelete: URL request failed with status " + 
                                 response.status, VACCINATOR_SERVICE));
                 }
@@ -217,8 +221,9 @@ class vaccinator {
     /**
      * Get payload from vaccinator service
      * pids may be multiple pids separated by space " " or as array
+     * 
      * @param {*} pids
-     * @return {string}
+     * @returns {string}
      */
     async userGet(pids) {
         if (pids === undefined || pids === "") {
@@ -278,7 +283,7 @@ class vaccinator {
                                 "] to url ["+that.url+"]");
                     fetch(that.url, params)
                     .then(function(response) {
-                        if (response.status != 200) {
+                        if (response.status !== 200) {
                             throw(new vaccinatorError("userGet: URL request failed with status " + 
                                         response.status, VACCINATOR_SERVICE));
                         }
@@ -288,12 +293,20 @@ class vaccinator {
                             that._debug("userGet: Successfully received payloads. Processing...");
                             // decrypt payloads
                             var data = jsonResult.data;
+                            var checksum = that.appId.substr(-2, 2); // current appId checksum
                             for (var pid of Object.keys(data)) {
-                                if (data[pid]["status"] == "OK") {
-                                    data[pid]["data"] = that._decrypt(data[pid]["data"], 
-                                                                      that._getKey());
-                                    // update local cache
-                                    that._storeCache(pid, data[pid]["data"]); // ignore promise!
+                                if (data[pid]["status"] === "OK") {
+                                    try {
+                                        data[pid]["data"] = that._decrypt(data[pid]["data"], 
+                                                                          that._getKey(), 
+                                                                          checksum);
+                                        // update local cache
+                                        that._storeCache(pid, data[pid]["data"]); // ignore promise (?)
+                                    } catch (e) {
+                                        // very likely the checksum did not match!
+                                        console.error("Unable to decrypt payload ["+pid+
+                                                "] because used appId seems not the correct one!");
+                                    }
                                 }
                             };
                             // merge cached and service results
@@ -315,8 +328,9 @@ class vaccinator {
 
     /**
      * Wipes the cache entry for the given PID
+     * 
      * @param {*} pids
-     * @return {promise}
+     * @returns {promise}
      */
     async userWipe(pids) {
         if (pids === undefined || pids === "") {
@@ -332,13 +346,81 @@ class vaccinator {
             });
         });
     }
+    
+    /**
+     * This is trying to re-encode all given payloads after the app-id has changed.
+     * The function also updates local cache. If you do not want all the data stay
+     * here, either use userWipe() to remove specific items or wipeCache() to
+     * cleanup all.
+     * After the function ran, the newAppId is the current class app-id and overlays
+     * the app-id given during initialization.
+     * 
+     * @param {*} pids
+     * @param {string} oldAppId
+     * @param {string} newAppId
+     * @returns {promise}
+     */
+    async changeAppId(pids, oldAppId, newAppId) {
+        if (pids === undefined || pids === "") {
+            throw (new vaccinatorError("changeAppId: pids parameter is mandatory",
+                    VACCINATOR_INVALID));
+        }
+        if (oldAppId === undefined || oldAppId === "" ||
+                newAppId === undefined || newAppId === "")  {
+            throw (new vaccinatorError("changeAppId: oldAppId and newAppId are mandatory",
+                    VACCINATOR_INVALID));
+        }
+        if (oldAppId !== this.appId) {
+            throw (new vaccinatorError("changeAppId: oldAppId must be identical to current appId",
+                    VACCINATOR_INVALID));
+        }
+        if (!Array.isArray(pids)) { pids = pids.split(" "); }
+        
+        var that = this;
+        return this.userGet(pids).then(function(payloadArray) {
+            // payloadArray should contain absolut all payloads to
+            // re-encrypt
+            
+            // create new vaccinator class with new AppId
+            var newVac = new vaccinator();
+            return newVac.init(that.url, that.userName, newAppId, that.password, that.debugging)
+            .then(function() {
+                var promises = new Array(); // will hold the promises
+                for(let i = 0; i < pids.length; i++) {
+                    // loop all pids and retrieved content
+                    let pid = pids[i];
+                    if (payloadArray[pid]["status"] === "OK") {
+                        that._debug("Store new dataset for ["+pid+"]");
+                        promises.push(newVac.userUpdate(pid, payloadArray[pid]["data"])
+                            .then(function (pid) {
+                               return pid; 
+                            })
+                        );
+                    } else {
+                        that._debug("Failed retrieving payload for PID [" + pid + "] (no data?).");
+                    }
+                }
+                return Promise.all(promises)
+                .then(function(pids) {
+                    newVac = null; // destroy instance
+                    // from now on, the new appId must get used:
+                    return that._saveAppId(newAppId)
+                    .then(function() {
+                       return pids.length;
+                    });
+                });
+                
+            });
+        });
+    }  
 
     /**
      * Wiping the complete cache. If token is given and known,
      * it will not wipe. If given and unknown it will wipe
      * and remember that token.
+     * 
      * @param {string} token (optional)
-     * @return {promise}
+     * @returns {promise}
      */
     async wipeCache(token) {
         var that = this;
@@ -367,8 +449,9 @@ class vaccinator {
     /**
      * Internal: wiping the cache (no token check!)
      * Will save token if given.
+     * 
      * @param {string} token (optional)
-     * @return {promise}
+     * @returns {promise}
      */
     async _wipeCache(token) {
         // wipe
@@ -394,6 +477,8 @@ class vaccinator {
     
     /**
      * Returns the current active AppId
+     * 
+     * @returns {string}
      */
     async getAppId() {
         var that = this;
@@ -425,8 +510,9 @@ class vaccinator {
     /**
      * Validates the given AppId. Returns true if it is valid.
      * Please refer to APP-ID description for details.
+     * 
      * @param {string} appId 
-     * @return {boolean}
+     * @returns {boolean}
      */
     validateAppId(appId) {
         if (appId === undefined || appId === "" || appId.length < 4) {
@@ -442,9 +528,10 @@ class vaccinator {
      * Saves the given AppId to the local database (using current userName).
      * If a password is known, it will save it encrypted!
      * 
-     * @param {string} appId 
+     * @param {string} appId
+     * @returns {promise}
      */
-    _saveAppId(appId) {
+    async _saveAppId(appId) {
         var key = this._getKey();
         var store = "";
         if (key !== false) {
@@ -453,17 +540,17 @@ class vaccinator {
         } else {
             store = appId;
         }
-        // console.log("Storing " + store);
         this._debug("Store/update app-id in local storage");
         var dbKey = "appId-" + this.userName;
-        localforage.setItem(dbKey, store);
         this.appId = appId; // keep local
+        return localforage.setItem(dbKey, store);
     }
 
     /**
      * Calculates the SHA256 from the known user password.
      * Returns false in case there is no valid password.
-     * @return {Uint8Array}
+     * 
+     * @returns {Uint8Array}
      */
     _getKey() {
         if (this.password !== undefined && this.password !== "") {
@@ -479,8 +566,9 @@ class vaccinator {
     /**
      * Generate some random number Uint8Array with given
      * byte length. Uses Math.random()!
+     * 
      * @param {int} bytes
-     * @return  {Uint8Array}
+     * @returns  {Uint8Array}
      */
     _generateRandom(bytes) {
         return Uint8Array.from({length: bytes}, () => Math.floor(Math.random() * 255));
@@ -489,8 +577,9 @@ class vaccinator {
     /**
      * Convert string to Uint8Array using utf8 encoding 
      * (eg for encryption)
+     * 
      * @param {string} str 
-     * @return {Uint8Array} 
+     * @returns {Uint8Array} 
      */
     _utf8AbFromStr(str) {
         var strUtf8 = unescape(encodeURIComponent(str));
@@ -504,8 +593,9 @@ class vaccinator {
     /**
      * Convert utf8 encoded Uint8Array to string 
      * (eg after decryption)
+     * 
      * @param {Uint8Array} ab 
-     * @return {string}
+     * @returns {string}
      */
     _strFromUtf8Ab(ab) {
         return decodeURIComponent(escape(String.fromCharCode.apply(null, ab)));
@@ -513,8 +603,9 @@ class vaccinator {
 
     /**
      * Convert some array to hex encoded string
+     * 
      * @param {Array} buffer
-     * @return {string}
+     * @returns {string}
      */
     _buf2hex(buffer) { // buffer is an ArrayBuffer
         return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
@@ -522,8 +613,9 @@ class vaccinator {
 
     /**
      * Convert some hex encoded string to Uint8Array
+     * 
      * @param {string} hexString 
-     * @return {Uint8Array}
+     * @returns {Uint8Array}
      */
     _hex2buf(hexString) {
         return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
@@ -532,8 +624,9 @@ class vaccinator {
     /**
      * Calculate SHA256 from some given string and
      * return hex encoded hash.
+     * 
      * @param {string} someString 
-     * @return {string}
+     * @returns {string}
      */
     _hash(someString) {
         return forge_sha256(someString);
@@ -543,22 +636,23 @@ class vaccinator {
      * Encrypt some string with given key array.
      * Standard:
      * recipt:iv:data
-     * If useChecksum is provided, it is added like
+     * If addChecksum is provided, it is added like
      * recipt:checksum:iv:data
+     * 
      * @param {string} data 
      * @param {array} password 
-     * @param {string} useChecksum (optional)
-     * @return {string} encryptedHEX
+     * @param {string} addChecksum (optional)
+     * @returns {string} encryptedHEX
      */
-    _encrypt(data, password, useChecksum) {
+    _encrypt(data, password, addChecksum) {
         var nonce = this._generateRandom(12);
         if (this.debugging) {
             this._debug("Encrypt with key ["+this._buf2hex(password)+"] "+
                         "and nonce ["+this._buf2hex(nonce)+"]"); 
         }
         var enc = new JSChaCha20(password, nonce).encrypt(this._utf8AbFromStr(data));
-        if (useChecksum !== undefined && useChecksum !== "") {
-            return "chacha20/12:" + useChecksum + ":" + 
+        if (addChecksum !== undefined && addChecksum !== "") {
+            return "chacha20/12:" + addChecksum + ":" + 
                    this._buf2hex(nonce) + ":" + this._buf2hex(enc);
         }
         return "chacha20/12:" + this._buf2hex(nonce) + ":" + this._buf2hex(enc);
@@ -566,12 +660,13 @@ class vaccinator {
 
     /**
      * Decrypt some encrypted with given key array. Returns string.
-     * If useChesum is fiven, it must match the one from
+     * If useChesum is given, it must match the one from
      * given data. Otherwise it throws an error.
+     * 
      * @param {string} data
      * @param {array} password
      * @param {string} useChecksum (optional)
-     * @return {string} decryptedText
+     * @returns {string} decryptedText
      */
     _decrypt(data, password, useChecksum) {
         var parts = data.split(":");
@@ -582,12 +677,12 @@ class vaccinator {
         var nonce = "";
         var data = "";
         if (useChecksum !== undefined && useChecksum !== "") {
-            if (useChecksum != parts[1]) {
+            if (useChecksum !== parts[1]) {
                 throw(new vaccinatorError("_decrypt: Checksum does not match!", 
                                VACCINATOR_UNKNOWN));
             }
         }
-        if (parts.length == 4) {
+        if (parts.length === 4) {
             nonce = this._hex2buf(parts[2]);
             data = this._hex2buf(parts[3]);
         } else {
@@ -597,7 +692,7 @@ class vaccinator {
         if (this.debugging) {
             // do not concat if no debugging is used (save time)
             this._debug("Decrypt with key ["+this._buf2hex(password)+
-                        "] and nonce ["+nonce+"]"); 
+                        "] and nonce ["+nonce+"] and checksum [" + useChecksum + "]"); 
         }
         var dec = new JSChaCha20(password, nonce).decrypt(data);
         return this._strFromUtf8Ab(dec);
@@ -606,6 +701,7 @@ class vaccinator {
     /**
      * Outputs vaccinator class related text to debug console
      * if debugging is activated
+     * 
      * @param {string} message 
      */
     _debug (message) {
@@ -617,9 +713,10 @@ class vaccinator {
 
     /**
      * Store data in cache
+     * 
      * @param {string} pid 
      * @param {string} payload 
-     * @return {boolean}
+     * @returns {boolean}
      */
     async _storeCache(pid, payload) {
         var that = this;
@@ -638,8 +735,9 @@ class vaccinator {
 
     /**
      * Getdata from cache. Will return null if not found!
+     * 
      * @param {string} pid 
-     * @return {string}
+     * @returns {string}
      */
     async _retrieveCache(pid) {
         var that = this;
@@ -655,8 +753,9 @@ class vaccinator {
 
     /**
      * Removes one given entry from the cache
+     * 
      * @param {array} pids
-     * @return {boolean}
+     * @returns {boolean}
      */
     async _removeCache(pids) {
         var that = this;
@@ -705,7 +804,8 @@ const VACCINATOR_UNKNOWN = 9; // unknown relation of error
  * 
  * @param {string} message 
  * @param {int} reason VACCINATOR_n
- * @return {object}
+ * @param {int} vaccinatorCode
+ * @returns {object}
  */
 function vaccinatorError(message, reason, vaccinatorCode) {
     var err = new Error(message);

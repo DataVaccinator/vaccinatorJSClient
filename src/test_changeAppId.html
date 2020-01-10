@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <title>Vaccinator Developer Class changeAppId test</title>
+    <meta charset="utf-8">  
+    <style></style>
+    <!-- start vaccinator include -->
+    <script src="localforage.min.js"></script>
+    <script src="forge-sha256.min.js"></script>
+    <script src="jschacha20.js"></script>
+    <script src="vaccinator_api.js"></script>
+    <!-- end vaccinator include -->
+  </head>
+  <body>
+    <h1>Vaccinator Service API Class changeAppId test</h1>
+    <p>Check console log for results and information.</p>
+
+    <script>
+      var appidOld = "Rc-De_6nyCbb";
+      var appidNew = "Zdn45jhdn4ff";
+      try {
+        var a = new vaccinator();
+        a.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appidOld, "password", true)
+        .then(function() {
+        
+          // !!! Create test data payload
+          var payload = '';
+          payload = '{"firstname":"Spongebob","lastname":"Squarepants", '+
+                    '"Gender":"male","address_street":"Bikini Street", '+
+                    '"address_number":"42","address_city":"Bikini Bottom", '+
+                    '"address_zip":"12345", "address_country":"Bikiniland", '+
+                    '"address_phone":"","address_mail":"spongebob@bikinibottom.water", '+
+                    '"company_location":"Crusty Krab", "date_og_birth":"01.02.1992", '+
+                    '"profession":"Fry Cook", "attending_physician":"Sandy Cheeks"'+
+                    '}';
+          
+          // create 10 new entries
+          var promises = Array();
+          for (var i = 0; i<2; i++) {
+            promises.push(a.userNew(payload));
+          }
+          Promise.all(promises).then(function(pids) {
+            // got n new pid's for the new test items.
+            
+            // now re-encrypting them
+            a.changeAppId(pids, appidOld, appidNew)
+            .then(function(cnt) {
+              console.log("Finished changeAppId and manipulated " + cnt + " items.");
+            });
+          });
+
+        });
+
+      } catch (e) {
+        // catch any vaccinator class errors from here
+        console.error(e);
+      }
+    </script>
+  </body>
+</html>
