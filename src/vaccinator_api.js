@@ -3,6 +3,8 @@
  * 
  * Access and use vaccinator service with JavaScript.
  * 
+ * TODO: Validate APP-ID during setting
+ * 
  */
 class vaccinator {
     url = "";
@@ -305,7 +307,12 @@ class vaccinator {
                                     } catch (e) {
                                         // very likely the checksum did not match!
                                         console.error("Unable to decrypt payload ["+pid+
-                                                "] because used appId seems not the correct one!");
+                                                "] because used appId seems not the correct one or "+
+                                                "some crypto error occured! "+
+                                                "Origin error: [" + e.toString() + "]");
+                                        // cleanup failing dataset
+                                        data[pid]["status"] = "ERROR";
+                                        data[pid]["data"] = false;
                                     }
                                 }
                             };
@@ -564,41 +571,14 @@ class vaccinator {
     }
 
     /**
-     * Generate some random number Uint8Array with given
+     * Generate some random number Array with given
      * byte length. Uses Math.random()!
      * 
      * @param {int} bytes
-     * @returns  {Uint8Array}
+     * @returns  {Array}
      */
     _generateRandom(bytes) {
-        return Uint8Array.from({length: bytes}, () => Math.floor(Math.random() * 255));
-    }
-
-    /**
-     * Convert string to Uint8Array using utf8 encoding 
-     * (eg for encryption)
-     * 
-     * @param {string} str 
-     * @returns {Uint8Array} 
-     */
-    _utf8AbFromStr(str) {
-        var strUtf8 = unescape(encodeURIComponent(str));
-        var ab = new Uint8Array(strUtf8.length);
-        for (var i = 0; i < strUtf8.length; i++) {
-            ab[i] = strUtf8.charCodeAt(i);
-        }
-        return ab;
-    }
-    
-    /**
-     * Convert utf8 encoded Uint8Array to string 
-     * (eg after decryption)
-     * 
-     * @param {Uint8Array} ab 
-     * @returns {string}
-     */
-    _strFromUtf8Ab(ab) {
-        return decodeURIComponent(escape(String.fromCharCode.apply(null, ab)));
+        return Array.from({length: bytes}, () => Math.floor(Math.random() * 255));
     }
 
     /**
@@ -608,7 +588,7 @@ class vaccinator {
      * @returns {string}
      */
     _buf2hex(buffer) { // buffer is an ArrayBuffer
-        return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
+        return aesjs.utils.hex.fromBytes(buffer);
     }
 
     /**
@@ -618,7 +598,7 @@ class vaccinator {
      * @returns {Uint8Array}
      */
     _hex2buf(hexString) {
-        return new Uint8Array(hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        return aesjs.utils.hex.toBytes(hexString);
     }
 
     /**
@@ -633,11 +613,15 @@ class vaccinator {
     }
 
     /**
-     * Encrypt some string with given key array.
-     * Standard:
-     * recipt:iv:data
+     * Encrypt some string with given key array using
+     * AES in CBC mode (key must me 256 bits).
+     * Recipt is aes-256-cbc
+     * 
+     * Result if Standard:
+     * recipt:iv:data (3 parts)
+     * 
      * If addChecksum is provided, it is added like
-     * recipt:checksum:iv:data
+     * recipt:addChecksum:iv:data (4 parts)
      * 
      * @param {string} data 
      * @param {array} password 
@@ -645,57 +629,71 @@ class vaccinator {
      * @returns {string} encryptedHEX
      */
     _encrypt(data, password, addChecksum) {
-        var nonce = this._generateRandom(12);
+        var iv = this._generateRandom(16); // 128 bits iv
         if (this.debugging) {
             this._debug("Encrypt with key ["+this._buf2hex(password)+"] "+
-                        "and nonce ["+this._buf2hex(nonce)+"]"); 
+                        "and iv ["+this._buf2hex(iv)+"]"); 
         }
-        var enc = new JSChaCha20(password, nonce).encrypt(this._utf8AbFromStr(data));
+        
+        var aesCbc = new aesjs.ModeOfOperation.cbc(password, iv);
+        
+        var dataBytes = aesjs.utils.utf8.toBytes(data); // convert to array
+        dataBytes = aesjs.padding.pkcs7.pad(dataBytes); // apply padding
+        var enc = aesCbc.encrypt(dataBytes);
+        
         if (addChecksum !== undefined && addChecksum !== "") {
-            return "chacha20/12:" + addChecksum + ":" + 
-                   this._buf2hex(nonce) + ":" + this._buf2hex(enc);
+            return "aes-256-cbc:" + addChecksum + ":" + 
+                   this._buf2hex(iv) + ":" + this._buf2hex(enc);
         }
-        return "chacha20/12:" + this._buf2hex(nonce) + ":" + this._buf2hex(enc);
+        return "aes-256-cbc:" + this._buf2hex(iv) + ":" + this._buf2hex(enc);
     }
 
     /**
      * Decrypt some encrypted with given key array. Returns string.
-     * If useChesum is given, it must match the one from
-     * given data. Otherwise it throws an error.
+     * If verifyChecksum is given, it must match the one from
+     * given input data. Otherwise it throws an error.
+     * 
+     * Currently only supporting "aes-256-cbc" for AES in CBC mode 
+     * (key must me 256 bits)
      * 
      * @param {string} data
      * @param {array} password
-     * @param {string} useChecksum (optional)
+     * @param {string} verifyChecksum (optional)
      * @returns {string} decryptedText
      */
-    _decrypt(data, password, useChecksum) {
+    _decrypt(data, password, verifyChecksum) {
         var parts = data.split(":");
-        if (parts[0] !== "chacha20/12") {
+        if (parts[0] !== "aes-256-cbc") {
             throw(new vaccinatorError("unknown crypto recipt [" + parts[0] + "]",
                            VACCINATOR_UNKNOWN));
         }
-        var nonce = "";
+        var iv = "";
         var data = "";
-        if (useChecksum !== undefined && useChecksum !== "") {
-            if (useChecksum !== parts[1]) {
+        if (verifyChecksum !== undefined && verifyChecksum !== "") {
+            if (verifyChecksum !== parts[1]) {
                 throw(new vaccinatorError("_decrypt: Checksum does not match!", 
                                VACCINATOR_UNKNOWN));
             }
         }
         if (parts.length === 4) {
-            nonce = this._hex2buf(parts[2]);
+            iv = this._hex2buf(parts[2]);
             data = this._hex2buf(parts[3]);
         } else {
-            nonce = this._hex2buf(parts[1]);
+            iv = this._hex2buf(parts[1]);
             data = this._hex2buf(parts[2]);
         }
         if (this.debugging) {
             // do not concat if no debugging is used (save time)
             this._debug("Decrypt with key ["+this._buf2hex(password)+
-                        "] and nonce ["+nonce+"] and checksum [" + useChecksum + "]"); 
+                        "] and iv ["+this._buf2hex(iv)+"] and checksum [" + 
+                        verifyChecksum + "]"); 
         }
-        var dec = new JSChaCha20(password, nonce).decrypt(data);
-        return this._strFromUtf8Ab(dec);
+        // var dec = new JSChaCha20(password, iv).decrypt(data);
+        var aesCbc = new aesjs.ModeOfOperation.cbc(password, iv);
+        var decryptedBytes = aesCbc.decrypt(data);
+        decryptedBytes = aesjs.padding.pkcs7.strip(decryptedBytes);
+        
+        return aesjs.utils.utf8.fromBytes(decryptedBytes);
     }
 
     /**
@@ -821,23 +819,3 @@ vaccinatorError.prototype = Object.create(
     Error.prototype,
     {name: {value: 'vaccinatorError', enumerable: false}}
 );
-
-/*
-Example codes notepad:
- 
-Encryption:
-const key = Uint8Array([...]); // 32 bytes key
-const nonce = Uint8Array([...]); // 12 bytes nonce
-const message = Uint8Array([...]); // some data as bytes array
-// Encrypt //
-const encrypt = new JSChaCha20(key, nonce).encrypt(message);
-// now encrypt contains bytes array of encrypted message
-
-Decryption:
-const key = Uint8Array([...]); // 32 bytes key
-const nonce = Uint8Array([...]); // 12 bytes nonce
-const encrypt = Uint8Array([...]); // some data as bytes array
-// Decrypt //
-const message = new JSChaCha20(key, nonce).decrypt(encrypt);
-// now message contains bytes array of original message
- */

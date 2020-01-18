@@ -17,14 +17,14 @@ existing application using this in the &lt;head&gt; section:
     <!-- start vaccinator include -->
     <script src="localforage.min.js"></script>
     <script src="forge-sha256.min.js"></script>
-    <script src="jschacha20.js"></script>
+    <script src="aes.js"></script>
     <script src="vaccinator_api.js"></script>
     <!-- end vaccinator include -->
 
 Now, there is a new class `vaccinator` available.
 
 Please note that the *localforage.min.js* is for local database access,
-the *jchacha20.js* is for encryption, the *forge-sha256.min.js* is for
+the *aes.js* is for AES encryption, the *forge-sha256.min.js* is for
 providing hash algorithm and *vaccinator.js* is the final class code you
 want to use.
 

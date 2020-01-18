@@ -7,7 +7,7 @@
     <!-- start vaccinator include -->
     <script src="localforage.min.js"></script>
     <script src="forge-sha256.min.js"></script>
-    <script src="jschacha20.js"></script>
+    <script src="aes.js"></script>
     <script src="vaccinator_api.js"></script>
     <!-- end vaccinator include -->
   </head>
@@ -34,7 +34,7 @@
                     '"profession":"Fry Cook", "attending_physician":"Sandy Cheeks"'+
                     '}';
           
-          // create 10 new entries
+          // create 2 new entries
           var promises = Array();
           for (var i = 0; i<2; i++) {
             promises.push(a.userNew(payload));
