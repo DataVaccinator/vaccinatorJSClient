@@ -17,11 +17,18 @@
 
     <script>
       var appid = "Rc-De_6nyCbb"; // volker ID 123456789
+      // var appid = "Rc-De_6nyCbb"; // volker ID 123456789
       try {
         var a = new vaccinator();
         a.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "password", true)
         .then(function() {
-        
+
+          if (!a.validateAppId(appid)) {
+            console.error("Given appid is not valid!");
+          }
+          
+          a.setHeaders( { 'Cache-Control': 'max-age=60' } );
+  
           // !!! Create test data payload
           var payload = '';
           payload = '{"firstname":"Spongebob","lastname":"Squarepants", '+
@@ -32,22 +39,6 @@
                     '"company_location":"Crusty Krab", "date_og_birth":"01.02.1992", '+
                     '"profession":"Fry Cook", "attending_physician":"Sandy Cheeks"'+
                     '}';
-
-          /*
-          console.time("adding testdata");
-          var promises = Array();
-          for (var i = 0; i<1000; i++) {
-            promises.push(a.userNew(payload));
-          }
-          Promise.all(promises).then(function() {
-            console.timeEnd("adding testdata");
-          });
-
-          // test getAppId() function
-          a.getAppId().then(function(id) {            
-              console.log("The current AppId is " + id);
-          });
-          */
 
           // !!! test userNew() function
           a.userNew(payload)

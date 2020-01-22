@@ -7,12 +7,13 @@
  * 
  */
 class vaccinator {
-    url = "";
-    userName = "";
-    appId = "";
-    password = "";
-    debugging = false;
-    cache = {};
+    url = "";           // current class connection to service URL
+    userName = "";      // currently used userName
+    password = "";      // currently used password
+    appId = "";         // currently used App ID
+    debugging = false;  // if debugging is activated
+    headers = {};       // optional additional headers to add to fetch requests
+    cache = {};         // cache object (hold in memory)
 
     /**
      * Initialize the vaccinator class
@@ -42,6 +43,13 @@ class vaccinator {
             throw (new vaccinatorError("Please use an up to date webbrowser (no IndexedDB supported)", 
                                   VACCINATOR_UNKNOWN));
         }
+        
+        if (appId !== undefined && appId !== "") {
+            if (!this.validateAppId(appId)) {
+                throw (new vaccinatorError("init: given appId does not validate!", 
+                                  VACCINATOR_INVALID));
+            }
+        };
 
         this.url = url;
         this.userName = userName;
@@ -86,7 +94,9 @@ class vaccinator {
                 var post = new FormData();
                 post.append("json", jsonString);
                 var params = { method:"POST",
-                               body: post };
+                               body: post,
+                               headers: that.headers
+                             };
                 that._debug("userNew: Protocol call: [" + jsonString + 
                             "] to url ["+that.url+"]");
                 fetch(that.url, params)
@@ -139,7 +149,9 @@ class vaccinator {
                 var post = new FormData();
                 post.append("json", jsonString);
                 var params = { method:"POST",
-                               body: post };
+                               body: post,
+                               headers: that.headers
+                             };
                 that._debug("userUpdate: Protocol call: [" + jsonString + 
                             "] to url ["+that.url+"]");
                 fetch(that.url, params)
@@ -192,7 +204,9 @@ class vaccinator {
             var post = new FormData();
             post.append("json", jsonString);
             var params = { method:"POST",
-                           body: post };
+                           body: post,
+                           headers: that.headers
+                         };
             that._debug("userDelete: Protocol call: [" + jsonString + 
                         "] to url ["+that.url+"]");
             fetch(that.url, params)
@@ -280,7 +294,9 @@ class vaccinator {
                     var post = new FormData();
                     post.append("json", jsonString);
                     var params = { method:"POST",
-                                body: post };
+                                   body: post,
+                                   headers: that.headers
+                                 };
                     that._debug("userGet: Protocol call: [" + jsonString + 
                                 "] to url ["+that.url+"]");
                     fetch(that.url, params)
@@ -381,6 +397,11 @@ class vaccinator {
             throw (new vaccinatorError("changeAppId: oldAppId must be identical to current appId",
                     VACCINATOR_INVALID));
         }
+        if (!this.validateAppId(newAppId)) {
+            throw (new vaccinatorError("changeAppId: given new appId does not validate!", 
+                    VACCINATOR_INVALID));
+        }
+        
         if (!Array.isArray(pids)) { pids = pids.split(" "); }
         
         var that = this;
@@ -529,6 +550,21 @@ class vaccinator {
         var sha256 = this._hash(appId.substr(0, appId.length-2)); // hash from AppId - checksum
         var calcCs = sha256.substr(-2); // calculated checksum
         return (cs === calcCs); // must be identical
+    }
+    
+    /**
+     * Set some additional header values.
+     * Example:
+     * .setHeaders( { 'Cache-Control': 'max-age=60' } );
+     * 
+     * @param {object} headersObj
+     * @returns {Boolean}
+     */
+    setHeaders(headersObj) {
+        this._debug("Set additional headers for the class [" + 
+                    JSON.stringify(headersObj) + "]");
+        this.headers = headersObj;
+        return true;
     }
 
     /**

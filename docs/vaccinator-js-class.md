@@ -28,14 +28,14 @@ the *aes.js* is for AES encryption, the *forge-sha256.min.js* is for
 providing hash algorithm and *vaccinator.js* is the final class code you
 want to use.
 
-All class functions except the validateAppId() function are asynchronous
-and return a promise. Don't forget to wrap a try/catch block around your
-class calls to handle potential errors thrown by the vaccinator class
-like in this example:
+All class functions except the validateAppId() and setHeaders() functions 
+are asynchronous and return a promise. Don't forget to wrap a try/catch
+block around your class calls to handle potential errors thrown by the 
+vaccinator class like in this example:
 
     try {
-      var a = new vaccinator();
-      a.init("https://serviceprovider.com/service.php", "username", "appid", "password", false)
+      var v = new vaccinator();
+      v.init("https://serviceprovider.com/service.php", "username", "appid", "password", false)
       .then(function() {
         console.log("Successfully initialized vaccinator class");
       }
@@ -378,6 +378,42 @@ validateAppId
     <tr class="even">
       <td>Info:</td>
       <td>Returns true if the given app-id contains a valid checksum. Returns false if not.</td>
+    </tr>
+  </tbody>
+</table>
+
+setHeaders
+----------
+
+<table>
+  <colgroup>
+    <col width="17%" />
+    <col width="82%" />
+  </colgroup>
+  <tbody>
+    <tr class="odd">
+      <td>Description:</td>
+      <td><p>Define additional header values to send on service requests.</p></td>
+    </tr>
+    <tr class="even">
+      <td>Parameters:</td>
+      <td>(object) headers</td>
+    </tr>
+    <tr class="odd">
+      <td>Return value:</td>
+      <td><p>(boolean) success</p></td>
+    </tr>
+    <tr class="even">
+      <td>Info:</td>
+      <td>This is added as headers value in fetch calls. Use directly after calling init():
+      <pre><code>
+var v = new vaccinator();
+v.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "password", true)
+.then(function() {
+  v.setHeaders( { 'Cache-Control': 'max-age=60' } );
+}</code></pre>
+      To clear headers, call with empty object like with <code>.setHeaders( {} );</code>.
+      </td>
     </tr>
   </tbody>
 </table>
