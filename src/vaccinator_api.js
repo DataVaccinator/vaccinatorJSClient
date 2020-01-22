@@ -3,8 +3,7 @@
  * 
  * Access and use vaccinator service with JavaScript.
  * 
- * TODO: Validate APP-ID during setting
- * 
+ * More Information: www.datavaccinator.com
  */
 class vaccinator {
     url = "";           // current class connection to service URL
