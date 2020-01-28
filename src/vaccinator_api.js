@@ -73,7 +73,7 @@ class vaccinator {
 
     /**
      * Pushes new payload to vaccinator service and returns
-     * generated app-id
+     * generated app-id. Updates local cache automatically.
      * 
      * @param {string} payload 
      * @returns {promise}
@@ -105,11 +105,14 @@ class vaccinator {
                                     response.status, VACCINATOR_SERVICE));
                     }
                     return response.json();
-                }).then(function(jsonResult) {
+                })
+                .then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
-                        that._debug("userNew: Returning new PID ["+jsonResult.pid+"]");
-                        that._storeCache(jsonResult.pid, payload); // ignore promise!
-                        resolve(jsonResult.pid);
+                        that._storeCache(jsonResult.pid, payload)
+                        .then(function() {
+                           that._debug("userNew: Returning new PID ["+jsonResult.pid+"]");
+                           resolve(jsonResult.pid); 
+                        });
                     } else {
                         throw(new vaccinatorError("userNew: Result was not OK (Code " +
                                     jsonResult.code+"-" + jsonResult.desc + ")", 
@@ -125,7 +128,7 @@ class vaccinator {
 
     /**
      * Updates new payload to vaccinator service and returns
-     * pid app-id
+     * pid app-id. Updates local cache automatically.
      * 
      * @param {string} pid
      * @param {string} payload 
@@ -162,9 +165,10 @@ class vaccinator {
                     return response.json();
                 }).then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
-                        that._storeCache(pid, payload); // ignore promise (good?)
-                        that._debug("userUpdate: Returning updated PID ["+pid+"]");
-                        resolve(pid);
+                        that._storeCache(pid, payload).then(function() {
+                            that._debug("userUpdate: Returning updated PID ["+pid+"]");
+                            resolve(pid);
+                        });
                     } else {
                         throw(new vaccinatorError("userUpdate: Result was not OK (Code " +
                                     jsonResult.code+"-" + jsonResult.desc + ")", 
@@ -179,8 +183,9 @@ class vaccinator {
     }
 
     /**
-     * Updates new payload to vaccinator service and returns
-     * pid app-id
+     * Deletes from vaccinator service and also from local cache. 
+     * TAKE CARE: The data is finally removed then!
+     * pids may be multiple pids separated by space " " or as array.
      * 
      * @param {*} pids
      * @returns {promise}
@@ -207,7 +212,7 @@ class vaccinator {
                            headers: that.headers
                          };
             that._debug("userDelete: Protocol call: [" + jsonString + 
-                        "] to url ["+that.url+"]");
+                        "] to url ["+that.url+"]");_storeCache
             fetch(that.url, params)
             .then(function(response) {
                 if (response.status !== 200) {
@@ -234,8 +239,8 @@ class vaccinator {
     }
 
     /**
-     * Get payload from vaccinator service
-     * pids may be multiple pids separated by space " " or as array
+     * Get payload from vaccinator service.
+     * pids may be multiple pids separated by space " " or as array.
      * 
      * @param {*} pids
      * @returns {string}
@@ -311,6 +316,7 @@ class vaccinator {
                             // decrypt payloads
                             var data = jsonResult.data;
                             var checksum = that.appId.substr(-2, 2); // current appId checksum
+                            var storePromises = new Array();
                             for (var pid of Object.keys(data)) {
                                 if (data[pid]["status"] === "OK") {
                                     try {
@@ -318,7 +324,7 @@ class vaccinator {
                                                                           that._getKey(), 
                                                                           checksum);
                                         // update local cache
-                                        that._storeCache(pid, data[pid]["data"]); // ignore promise (?)
+                                        storePromises.push(that._storeCache(pid, data[pid]["data"]));
                                     } catch (e) {
                                         // very likely the checksum did not match!
                                         console.error("Unable to decrypt payload ["+pid+
@@ -332,8 +338,12 @@ class vaccinator {
                                 }
                             };
                             // merge cached and service results
-                            finalResult = Object.assign({}, data, finalResult); 
-                            resolve(finalResult);
+                            return Promise.all(storePromises)
+                            .then(function() {
+                                finalResult = Object.assign({}, data, finalResult);
+                                that._debug("userGet: Finished");
+                                resolve(finalResult);
+                            })
                         } else {
                             throw(new vaccinatorError("userGet: Result was not OK (Code " +
                                         jsonResult.code+"-" + jsonResult.desc + ")", 
@@ -349,7 +359,8 @@ class vaccinator {
     }
 
     /**
-     * Wipes the cache entry for the given PID
+     * Wipes the cache entry for the given PID(s).
+     * pids may be multiple pids separated by space " " or as array.
      * 
      * @param {*} pids
      * @returns {promise}
@@ -376,6 +387,8 @@ class vaccinator {
      * cleanup all.
      * After the function ran, the newAppId is the current class app-id and overlays
      * the app-id given during initialization.
+     * 
+     * pids may be multiple pids separated by space " " or as array.
      * 
      * @param {*} pids
      * @param {string} oldAppId
@@ -456,7 +469,7 @@ class vaccinator {
             return localforage.getItem("payloadToken")
             .then(function(knownToken) {
                 if (knownToken === token) {
-                    that._debug("No need to wipe cache (known token)");
+                    that._debug("wipeCache: No need to wipe cache (known token)");
                     return false; // no need to wipe
                 }
                 return that._wipeCache(token).then(function() {
@@ -483,7 +496,7 @@ class vaccinator {
     async _wipeCache(token) {
         // wipe
         var that = this;
-        this._debug("Wiping cache");
+        this._debug("_wipeCache: Wiping cache");
         this.cache = {};
         return localforage.setItem("payload", this.cache)
         .then(function (value) {
@@ -491,7 +504,7 @@ class vaccinator {
                 // need to save payloadToken
                 return localforage.setItem("payloadToken", token)
                 .then(function() {
-                    that._debug("New cache token is [" + token + "]");
+                    that._debug("_wipeCache: New cache token is [" + token + "]");
                     return true;
                 });
             }
@@ -511,13 +524,13 @@ class vaccinator {
         var that = this;
         if (this.appId !== undefined) {
             // return known app-id
-            this._debug("Return already cached app-id");
+            this._debug("getAppId: Return already cached app-id");
             return new Promise(function(resolve, reject) {
                 resolve(that.appId);
             });
         }
         // try getting it from database
-        this._debug("Read app-id from database");
+        this._debug("getAppId: Read app-id from database");
         var dbKey = "appId-" + this.userName;
         return localforage.getItem(dbKey).then(function (value) {
             var appId = value;
@@ -525,7 +538,7 @@ class vaccinator {
             if (key !== false) {
                 appId = that._decrypt(value, key);
             }
-            that._debug("Return app-id [" + appId + "]");
+            that._debug("getAppId: Return app-id [" + appId + "]");
             that.appId = appId; // cache
             return appId;
         }).catch(function (error) {
@@ -582,7 +595,7 @@ class vaccinator {
         } else {
             store = appId;
         }
-        this._debug("Store/update app-id in local storage");
+        this._debug("_saveAppId: Store/update app-id in local storage");
         var dbKey = "appId-" + this.userName;
         this.appId = appId; // keep local
         return localforage.setItem(dbKey, store);
@@ -666,7 +679,7 @@ class vaccinator {
     _encrypt(data, password, addChecksum) {
         var iv = this._generateRandom(16); // 128 bits iv
         if (this.debugging) {
-            this._debug("Encrypt with key ["+this._buf2hex(password)+"] "+
+            this._debug("_encrypt: Encrypt with key ["+this._buf2hex(password)+"] "+
                         "and iv ["+this._buf2hex(iv)+"]"); 
         }
         
@@ -719,7 +732,7 @@ class vaccinator {
         }
         if (this.debugging) {
             // do not concat if no debugging is used (save time)
-            this._debug("Decrypt with key ["+this._buf2hex(password)+
+            this._debug("_decrypt: Decrypt with key ["+this._buf2hex(password)+
                         "] and iv ["+this._buf2hex(iv)+"] and checksum [" + 
                         verifyChecksum + "]"); 
         }
@@ -753,15 +766,16 @@ class vaccinator {
      */
     async _storeCache(pid, payload) {
         var that = this;
-        this._ensureCacheLoaded().then(function() {
+        return this._ensureCacheLoaded()
+        .then(function() {
             var dbKey = that._hash(pid);
-            that._debug("Storing payload for PID " + pid + " in cache");
+            that._debug("_storeCache: Storing payload for PID " + pid + " in cache");
             that.cache[dbKey] = payload;
             return localforage.setItem("payload", that.cache).then(function (value) {
                 return true;
             }).catch(function (error) {
-                throw(new vaccinatorError("Failed storing payload (store) [" + error + "]", 
-                                VACCINATOR_UNKNOWN));
+                throw(new vaccinatorError("_storeCache: Failed storing payload (store) [" + 
+                                          error + "]", VACCINATOR_UNKNOWN));
             });
         });
     }
@@ -774,9 +788,11 @@ class vaccinator {
      */
     async _retrieveCache(pid) {
         var that = this;
-        return this._ensureCacheLoaded().then(function() {
+        return this._ensureCacheLoaded()
+        .then(function() {
             var dbKey = that._hash(pid);
-            that._debug("Retrieve payload for PID " + pid + " from cache");
+            that._debug("_retrieveCache: Retrieve payload for PID " + pid + 
+                        " from cache");
             // use cache object
             return new Promise(function(resolve, reject) {
                 resolve(that.cache[dbKey]);
@@ -798,32 +814,36 @@ class vaccinator {
                 delete that.cache[dbKey];
             });
             return localforage.setItem("payload", that.cache).then(function (value) {
-                that._debug("Removed payload for PID(s) " + JSON.stringify(pids) + " from cache");
+                that._debug("_removeCache: Removed payload for PID(s) " + 
+                            JSON.stringify(pids) + " from cache");
                 return true;
             }).catch(function (error) {
-                throw(new vaccinatorError("Failed storing payload (remove) [" + error + "]", 
-                                VACCINATOR_UNKNOWN));
+                throw(new vaccinatorError("_removeCache: Failed storing payload (remove) [" + 
+                                          error + "]", VACCINATOR_UNKNOWN));
             });
         });
     }
 
     async _ensureCacheLoaded() {
+        var that = this;
         if (Object.keys(this.cache).length === 0) {
             // initially, need to get cache from database
-            this._debug("Restore cache from local storage");
-            var that = this;
-            return localforage.getItem("payload").then(function(payload) {
+            this._debug("_ensureCacheLoaded: Restore cache from local storage");
+            return localforage.getItem("payload")
+            .then(function(payload) {
                 if (payload === null) { payload = {}; }
                 that.cache = payload;
-                that._debug("Restored cache with " + Object.keys(that.cache).length + " objects");
+                that._debug("_ensureCacheLoaded: Restored cache with " + 
+                            Object.keys(that.cache).length + " objects");
                 return;
             }).catch(function (error) {
-                throw(new vaccinatorError("Failed database access [" + error + "]", 
-                                VACCINATOR_UNKNOWN));
+                throw(new vaccinatorError("_ensureCacheLoaded: Failed database access [" + 
+                                          error + "]", VACCINATOR_UNKNOWN));
             });
         }
         // nothing to do
         return new Promise(function(resolve, reject) {
+            that._debug("_ensureCacheLoaded: Cache is loaded");
             resolve(true);
         });
     }

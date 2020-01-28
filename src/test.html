@@ -51,33 +51,33 @@
               console.log("Successfully updated PID " + pid);
 
               // !!! test userWipe() function
-              a.userWipe(pid)
+              a.userWipe(pid + " " + "dc2520e55dbc02d44a6ebc160cbffa62")
               .then(function(pids) { // returns array!
                 console.log("Wiped user data from cache (force reload)");
 
                 // !!! test userGet() function
                 // use some unknown PID to simulate "not found" and trigger vaccinator call
-                var toGet = Array(pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654");
-                a.userGet(toGet
-                ).then(function(payloadArray) {
+                var toGet = Array(pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654", "dc2520e55dbc02d44a6ebc160cbffa62");
+                a.userGet(toGet)
+                .then(function(payloadArray) {
                   console.log("Successfully received payloads object array:");
                   console.log(payloadArray);
 
                   // !!! test userDelete() function
                   a.userDelete(pid).then(function(pids) {
                     console.log("Successfully removed the entry for user(s) " + JSON.stringify(pids));
-                  });
-                  
-                  // !!! test wipeCache() function
-                  // A weekday token will force the cache to become
-                  // wiped every day (just as an example).
-                  var token = "token-weekday-" + new Date().getDay();
-                  a.wipeCache(token).then(function(cacheWiped) {
-                    if (cacheWiped) {
-                      console.log("Cache wiped");
-                    } else {
-                      console.log("Cache NOT wiped");
-                    }
+
+                    // !!! test wipeCache() function
+                    // A weekday token will force the cache to become
+                    // wiped every day (just as an example).
+                    var token = "token-weekday-" + new Date().getDay();
+                    a.wipeCache(token).then(function(cacheWiped) {
+                      if (cacheWiped) {
+                        console.log("Cache wiped");
+                      } else {
+                        console.log("Cache NOT wiped");
+                      }
+                    });
                   });
                 });
               });
