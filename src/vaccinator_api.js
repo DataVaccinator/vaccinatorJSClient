@@ -212,7 +212,7 @@ class vaccinator {
                            headers: that.headers
                          };
             that._debug("userDelete: Protocol call: [" + jsonString + 
-                        "] to url ["+that.url+"]");_storeCache
+                        "] to url ["+that.url+"]");
             fetch(that.url, params)
             .then(function(response) {
                 if (response.status !== 200) {
@@ -272,7 +272,7 @@ class vaccinator {
                 finalResult[pid] = r;
                 return;
             }));
-        })
+        });
 
         return Promise.all(promises)
         .then(function() {
@@ -343,7 +343,7 @@ class vaccinator {
                                 finalResult = Object.assign({}, data, finalResult);
                                 that._debug("userGet: Finished");
                                 resolve(finalResult);
-                            })
+                            });
                         } else {
                             throw(new vaccinatorError("userGet: Result was not OK (Code " +
                                         jsonResult.code+"-" + jsonResult.desc + ")", 
