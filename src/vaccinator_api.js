@@ -423,6 +423,7 @@ class vaccinator {
             
             // create new vaccinator class with new AppId
             var newVac = new vaccinator();
+            newVac.setHeaders(that.headers); // duplicate headers to use
             return newVac.init(that.url, that.userName, newAppId, that.password, that.debugging)
             .then(function() {
                 var promises = new Array(); // will hold the promises
