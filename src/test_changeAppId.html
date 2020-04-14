@@ -17,7 +17,7 @@
 
     <script>
       var appidOld = "Rc-De_6nyCbb";
-      var appidNew = "Zdn45jhdn4ff";
+      var appidNew = "Zdn45jhdn425";
       try {
         var a = new vaccinator();
         a.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appidOld, "password", true)
@@ -41,6 +41,7 @@
           }
           Promise.all(promises).then(function(pids) {
             // got n new pid's for the new test items.
+            console.log(pids);
             
             // now re-encrypting them
             a.changeAppId(pids, appidOld, appidNew)
