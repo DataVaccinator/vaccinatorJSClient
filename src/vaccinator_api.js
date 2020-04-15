@@ -556,7 +556,6 @@ class vaccinator {
      * @returns {boolean}
      */
     validateAppId(appId) {
-        return true;
         if (appId === undefined || appId === "" || appId.length < 4) {
             return false;
         }
