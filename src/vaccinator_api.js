@@ -535,7 +535,7 @@ class vaccinator {
         var dbKey = "appId-" + this.userName;
         return localforage.getItem(dbKey).then(function (value) {
             var appId = value;
-            var key = that._getKey();
+            var key = that._getPasswordKey();
             if (key !== false) {
                 appId = that._decrypt(value, key);
             }
@@ -556,6 +556,7 @@ class vaccinator {
      * @returns {boolean}
      */
     validateAppId(appId) {
+        return true;
         if (appId === undefined || appId === "" || appId.length < 4) {
             return false;
         }
@@ -588,7 +589,7 @@ class vaccinator {
      * @returns {promise}
      */
     async _saveAppId(appId) {
-        var key = this._getKey();
+        var key = this._getPasswordKey();
         var store = "";
         if (key !== false) {
             // save encrypted
@@ -605,16 +606,34 @@ class vaccinator {
     /**
      * Calculates the SHA256 from the known user password.
      * Returns false in case there is no valid password.
+     * Note: This is only used for storing the App-ID in local browser cache.
+     * 
+     * @returns {Uint8Array}
+     */
+    _getPasswordKey() {
+        if (this.password !== undefined && this.password !== "") {
+            this._debug("Calculate sha256 from password");
+            var sha256 = this._hash(this.password);
+            return this._hex2buf(sha256);
+        }
+        this._debug("No password defined (_getPasswordKey -> false)");
+        return false;
+
+    }
+    
+    /**
+     * Calculates the SHA256 from the current App-ID.
+     * Returns false in case there is no valid App-ID.
      * 
      * @returns {Uint8Array}
      */
     _getKey() {
-        if (this.password !== undefined && this.password !== "") {
-            this._debug("Calculate sha256 from password as crypto key");
-            var sha256 = this._hash(this.password);
+        if (this.appId !== undefined) {
+            this._debug("Calculate sha256 from appId as crypto key");
+            var sha256 = this._hash(this.appId);
             return this._hex2buf(sha256);
         }
-        this._debug("No crypto key available (getKey -> false)");
+        this._debug("No App-ID defined (_getKey -> false)");
         return false;
 
     }
@@ -673,18 +692,18 @@ class vaccinator {
      * recipt:addChecksum:iv:data (4 parts)
      * 
      * @param {string} data 
-     * @param {array} password 
+     * @param {array} key 
      * @param {string} addChecksum (optional)
      * @returns {string} encryptedHEX
      */
-    _encrypt(data, password, addChecksum) {
+    _encrypt(data, key, addChecksum) {
         var iv = this._generateRandom(16); // 128 bits iv
         if (this.debugging) {
-            this._debug("_encrypt: Encrypt with key ["+this._buf2hex(password)+"] "+
+            this._debug("_encrypt: Encrypt with key ["+this._buf2hex(key)+"] "+
                         "and iv ["+this._buf2hex(iv)+"]"); 
         }
         
-        var aesCbc = new aesjs.ModeOfOperation.cbc(password, iv);
+        var aesCbc = new aesjs.ModeOfOperation.cbc(key, iv);
         
         var dataBytes = aesjs.utils.utf8.toBytes(data); // convert to array
         dataBytes = aesjs.padding.pkcs7.pad(dataBytes); // apply padding
@@ -706,11 +725,11 @@ class vaccinator {
      * (key must me 256 bits)
      * 
      * @param {string} data
-     * @param {array} password
+     * @param {array} key
      * @param {string} verifyChecksum (optional)
      * @returns {string} decryptedText
      */
-    _decrypt(data, password, verifyChecksum) {
+    _decrypt(data, key, verifyChecksum) {
         var parts = data.split(":");
         if (parts[0] !== "aes-256-cbc") {
             throw(new vaccinatorError("unknown crypto recipt [" + parts[0] + "]",
@@ -733,12 +752,12 @@ class vaccinator {
         }
         if (this.debugging) {
             // do not concat if no debugging is used (save time)
-            this._debug("_decrypt: Decrypt with key ["+this._buf2hex(password)+
+            this._debug("_decrypt: Decrypt with key ["+this._buf2hex(key)+
                         "] and iv ["+this._buf2hex(iv)+"] and checksum [" + 
                         verifyChecksum + "]"); 
         }
         // var dec = new JSChaCha20(password, iv).decrypt(data);
-        var aesCbc = new aesjs.ModeOfOperation.cbc(password, iv);
+        var aesCbc = new aesjs.ModeOfOperation.cbc(key, iv);
         var decryptedBytes = aesCbc.decrypt(data);
         decryptedBytes = aesjs.padding.pkcs7.strip(decryptedBytes);
         

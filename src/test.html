@@ -57,7 +57,7 @@
 
                 // !!! test userGet() function
                 // use some unknown PID to simulate "not found" and trigger vaccinator call
-                var toGet = Array(pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654", "dc2520e55dbc02d44a6ebc160cbffa62");
+                var toGet = Array(pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654");
                 a.userGet(toGet)
                 .then(function(payloadArray) {
                   console.log("Successfully received payloads object array:");

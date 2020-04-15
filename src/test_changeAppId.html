@@ -16,7 +16,7 @@
     <p>Check console log for results and information.</p>
 
     <script>
-      var appidOld = "Rc-De_6nyCbb";
+      var appidOld = "password";// "Rc-De_6nyCbb";
       var appidNew = "Zdn45jhdn425";
       try {
         var a = new vaccinator();
@@ -43,10 +43,14 @@
             // got n new pid's for the new test items.
             console.log(pids);
             
-            // now re-encrypting them
-            a.changeAppId(pids, appidOld, appidNew)
-            .then(function(cnt) {
-              console.log("Finished changeAppId and manipulated " + cnt + " items.");
+            a.wipeCache().then(function() {
+            
+              // now re-encrypting them
+              a.changeAppId(pids, appidOld, appidNew)
+              .then(function(cnt) {
+                console.log("Finished changeAppId and manipulated " + cnt + " items.");
+              });
+              
             });
           });
 
