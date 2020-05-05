@@ -57,7 +57,7 @@ init
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Initialize a new vaccinator session.</p></td>
+      <td>Initialize a new vaccinator session.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -65,7 +65,7 @@ init
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (boolean) true = success</p></td>
+      <td>(promise) (boolean) true = success</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -89,7 +89,7 @@ userNew
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Create a new user entry.</p></td>
+      <td>Create a new user entry.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -97,7 +97,7 @@ userNew
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (string) PID</p></td>
+      <td>(promise) (string) PID</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -117,7 +117,7 @@ userUpdate
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Update an existing user entry.</p></td>
+      <td>Update an existing user entry.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -125,7 +125,7 @@ userUpdate
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (string) PID</p></td>
+      <td>(promise) (string) PID</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -146,7 +146,7 @@ userGet
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Retrieve the payload of a given user entry.</p></td>
+      <td>Retrieve the payload of a given user entry.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -154,7 +154,7 @@ userGet
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (object array) payload</p></td>
+      <td>(promise) (object array) payload</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -191,7 +191,7 @@ userDelete
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Delete the given user entry.</p></td>
+      <td>Delete the given user entry.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -199,7 +199,7 @@ userDelete
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (array) PID(s)</p></td>
+      <td>(promise) (array) PID(s)</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -219,7 +219,7 @@ userWipe
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Wipe the given user entry from the local cache (does not delete data from vaccinator service!)</p></td>
+      <td>Wipe the given user entry from the local cache (does not delete data from vaccinator service!)</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -227,7 +227,7 @@ userWipe
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (array) PID(s)</p></td>
+      <td>(promise) (array) PID(s)</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -247,7 +247,7 @@ wipeCache
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Wipe all locally cached information.</p></td>
+      <td>Wipe all locally cached information.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -255,7 +255,7 @@ wipeCache
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (boolean) true = cache was wiped, false = cache stayed untouched</p></td>
+      <td>(promise) (boolean) true = cache was wiped, false = cache stayed untouched</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -277,7 +277,7 @@ changeAppId
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>This is trying to re-encode all payloads after the app-id has changed.</p></td>
+      <td>This is trying to re-encode all payloads after the app-id has changed.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -285,7 +285,7 @@ changeAppId
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (int) number of processed items</p></td>
+      <td>(promise) (int) number of processed items</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -337,7 +337,7 @@ getAppId
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Returns the app-id that is currently in use.</p></td>
+      <td>Returns the app-id that is currently in use.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -345,7 +345,7 @@ getAppId
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(promise) (string) app-id</p></td>
+      <td>(promise) (string) app-id</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -365,7 +365,7 @@ validateAppId
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Validates the checksum of the given app-id</p></td>
+      <td>Validates the checksum of the given app-id.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -373,11 +373,48 @@ validateAppId
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(boolean) validity</p></td>
+      <td>(boolean) validity</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
       <td>Returns true if the given app-id contains a valid checksum. Returns false if not.</td>
+    </tr>
+  </tbody>
+</table>
+
+getServerInfo
+-------------
+
+<table>
+  <colgroup>
+    <col width="17%" />
+    <col width="82%" />
+  </colgroup>
+  <tbody>
+    <tr class="odd">
+      <td>Description:</td>
+      <td>Retrieves generic information from the connected DataVaccinator server.</td>
+    </tr>
+    <tr class="even">
+      <td>Parameters:</td>
+      <td>-</td>
+    </tr>
+    <tr class="odd">
+      <td>Return value:</td>
+      <td>(promise) (array) server information.</td>
+    </tr>
+    <tr class="even">
+      <td>Info:</td>
+      <td>
+        <p>The returned object array contains the following fields:</p>
+        <p>
+          <code>status</code> The general state of this request ("OK", "INVALID" or "ERROR).<br>
+          <code>version</code> The version of the DataVaccinator server.<br>
+          <code>time</code> The current date and time on the DataVaccinator server.<br>
+          <code>plugins</code> An array of plugins. Each entry has 'name', 'vendor' and 'license' field.<br>
+          <code>uid</code> User ID submitted by the class during the call (you may ignore this).
+        </p>
+      </td>
     </tr>
   </tbody>
 </table>
@@ -393,7 +430,7 @@ setHeaders
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td><p>Define additional header values to send on service requests.</p></td>
+      <td>Define additional header values to send on service requests.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -401,7 +438,7 @@ setHeaders
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td><p>(boolean) success</p></td>
+      <td>(boolean) success</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -413,6 +450,81 @@ v.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "
   v.setHeaders( { 'Cache-Control': 'max-age=60' } );
 }</code></pre>
       To clear headers, call with empty object like with <code>.setHeaders( {} );</code>.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+enableSearchFunction
+--------------------
+
+<table>
+  <colgroup>
+    <col width="17%" />
+    <col width="82%" />
+  </colgroup>
+  <tbody>
+    <tr class="odd">
+      <td>Description:</td>
+      <td>Enables or disables the search functionality.</td>
+    </tr>
+    <tr class="even">
+      <td>Parameters:</td>
+      <td>(array) word field names</td>
+    </tr>
+    <tr class="odd">
+      <td>Return value:</td>
+      <td>(boolean) success</td>
+    </tr>
+    <tr class="even">
+      <td>Info:</td>
+      <td>
+        <p>Here you submit an array of field names to be used for search
+          function. If your payload contains values for the given fields, they
+          will get uploaded as SearchHash to the DataVaccinator server. This
+          then allows you to find the assigned PIDs using the "search" function.
+        <p>To disable the feature, submit an empty array or no parameter.</p>
+        <p><strong>Note:</strong>This only works if the payload given in "add"
+        or "update" calls is a valid JSON string!</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+search
+------
+
+<table>
+  <colgroup>
+    <col width="17%" />
+    <col width="82%" />
+  </colgroup>
+  <tbody>
+    <tr class="odd">
+      <td>Description:</td>
+      <td>Search through the DataVaccinator service for entries.</td>
+    </tr>
+    <tr class="even">
+      <td>Parameters:</td>
+      <td>(string) search term</td>
+    </tr>
+    <tr class="odd">
+      <td>Return value:</td>
+      <td>(promise) (array) PID(s)</td>
+    </tr>
+    <tr class="even">
+      <td>Info:</td>
+      <td>
+        <p>The search term is one or more words, divided by space. If multiple
+          words are given, it will return only matches who matched both words
+          in the payload (AND).</p>
+        <p>Search words do not have to be complete and case does not matter. The
+          search always begins on the left and returns all matches there.
+          Thus, you can simply enter "joh foo" to find John Foobar.</p>
+        <p><strong>Note:</strong>This only works if the "enableSearchFunction"
+        was called before using "add" or "update" calls. You can only search
+        for entries that were pushed or updated with search function
+        enabled.</p>
       </td>
     </tr>
   </tbody>

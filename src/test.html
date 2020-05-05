@@ -16,18 +16,26 @@
     <p>Check console log for results and information.</p>
 
     <script>
-      var appid = "Rc-De_6nyCbb"; // volker ID 123456789
-      try {
-        var a = new vaccinator();
-        a.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "password", true)
-        .then(function() {
+      const appid = "Rc-De_6nyCbb"; // Adapt to your needs. My APP-ID was 123456789
+      
+      test(); // call testing function (must be a function because of async)
+      
+      async function test() {
+        try {
+          var a = new vaccinator();
+          await a.init("http://vaccinator.vsdevel.de.regify.com/service.php", 
+                               "volker", appid, "password", true);
 
-          if (!a.validateAppId(appid)) {
-            console.error("Given appid is not valid!");
-          }
-          
+          // !!! Set some additional header for all network calls
           a.setHeaders( { 'Cache-Control': 'max-age=60' } );
-  
+          
+          // !!! Enable search function using "firstname" payload field
+          a.enableSearchFunction( [ "firstname", "lastname" ] );
+          
+          // !!! Get some info from the server
+          const serverInfo = await a.getServerInfo();
+          console.log("Server-Info: " + JSON.stringify(serverInfo));
+
           // !!! Create test data payload
           var payload = '';
           payload = '{"firstname":"Spongebob","lastname":"Squarepants", '+
@@ -40,56 +48,60 @@
                     '}';
 
           // !!! test userNew() function
-          a.userNew(payload)
-          .then(function(pid) {
-            console.log("The new user PID is " + pid);
+          var pid = await a.userNew(payload);  
+          console.log("The new user PID is " + pid);
 
-            // !!! test userUpdate() function
-            payload = '{"fn":"Patrick","ln":"Star"}';
-            a.userUpdate(pid, payload)
-            .then(function(pid) {
-              console.log("Successfully updated PID " + pid);
+          // !!! test userUpdate() function
+          payload = '{"firstname":"Patrick","lastname":"Star"}';
+          pid = await a.userUpdate(pid, payload);
 
-              // !!! test userWipe() function
-              a.userWipe(pid + " " + "dc2520e55dbc02d44a6ebc160cbffa62")
-              .then(function(pids) { // returns array!
-                console.log("Wiped user data from cache (force reload)");
+          console.log("Successfully updated PID " + pid);
 
-                // !!! test userGet() function
-                // use some unknown PID to simulate "not found" and trigger vaccinator call
-                var toGet = Array(pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654");
-                a.userGet(toGet)
-                .then(function(payloadArray) {
-                  console.log("Successfully received payloads object array:");
-                  console.log(payloadArray);
+          // !!! test userWipe() function
+          var pids = await a.userWipe(pid + " " + "dc2520e55dbc02d44a6ebc160cbffa62");
+          console.log("Wiped user data from cache (force reload)");
 
-                  // !!! test userDelete() function
-                  a.userDelete(pid).then(function(pids) {
-                    console.log("Successfully removed the entry for user(s) " + JSON.stringify(pids));
+          // !!! test userGet() function
+          // use some unknown PID to simulate "not found" and trigger vaccinator call
+          var toGet = [ pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654" ];
+          var payloadArray = await a.userGet(toGet);
+          console.log("Successfully received payloads object array:");
+          console.log(payloadArray);
+          
+          // !!! test search() function
+          pids = await a.search("pat");
+          console.log("Found using 'pat': " + JSON.stringify(pids));
+          if (pids.length !== 1) { console.error("Wrong number of results!"); }
+          pids = await a.search("nonsense");
+          console.log("Found using 'nonsense': " + JSON.stringify(pids));
+          if (pids.length !== 0) { console.error("Wrong number of results!"); }
+          pids = await a.search("patr sta");
+          console.log("Found using 'patr sta': " + JSON.stringify(pids));
+          if (pids.length !== 1) { console.error("Wrong number of results!"); }
+          pids = await a.search("patr tes");
+          console.log("Found using 'patr tes': " + JSON.stringify(pids));
+          if (pids.length !== 0) { console.error("Wrong number of results!"); }
 
-                    // !!! test wipeCache() function
-                    // A weekday token will force the cache to become
-                    // wiped every day (just as an example).
-                    var token = "token-weekday-" + new Date().getDay();
-                    a.wipeCache(token).then(function(cacheWiped) {
-                      if (cacheWiped) {
-                        console.log("Cache wiped");
-                      } else {
-                        console.log("Cache NOT wiped");
-                      }
-                    });
-                  });
-                });
-              });
-            });
-          });
-        });
+          // !!! test userDelete() function
+          pids = await a.userDelete(pid);
+          console.log("Successfully removed the entry for user(s) " + JSON.stringify(pids));
 
-      } catch (e) {
-        // catch any vaccinator class errors from here
-        console.error(e);
+          // !!! test wipeCache() function
+          // A weekday token will force the cache to become
+          // wiped every day (just as an example).
+          const token = "token-weekday-" + new Date().getDay();
+          var cacheWiped = await a.wipeCache(token);
+          if (cacheWiped) {
+            console.log("Cache wiped");
+          } else {
+            console.log("Cache NOT wiped");
+          }
+
+        } catch (e) {
+          // catch any vaccinator class errors from here
+          console.error(e);
+        }
       }
-      
     </script>
   </body>
 </html>

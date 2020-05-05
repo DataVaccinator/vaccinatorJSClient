@@ -1,9 +1,8 @@
 /**
  * vaccinatorJsClient class module
- * 
- * Access and use vaccinator service with JavaScript.
- * 
- * More Information: www.datavaccinator.com
+ * @license MIT License
+ * @link https://www.datavaccinator.com
+ * See github LICENSE file for license text.
  */
 class vaccinator {
     url = "";           // current class connection to service URL
@@ -13,11 +12,7 @@ class vaccinator {
     debugging = false;  // if debugging is activated
     headers = {};       // optional additional headers to add to fetch requests
     cache = {};         // cache object (hold in memory)
-
-    /**
-     * Initialize the vaccinator class
-     */
-    constructor() {  }
+    searchFields = [];  // currently used search fields
 
     /**
      * Initialize the vaccinator class
@@ -27,7 +22,7 @@ class vaccinator {
      * @param {string} appId (optional)
      * @param {string} password (optional)
      * @param {boolean} debugMode (optional)
-     * @returns {boolean}
+     * @returns {boolean} success
      */
     async init(url, userName, appId, password, debugMode) {
         // initialize the common parameters
@@ -66,7 +61,7 @@ class vaccinator {
         });
 
         // restore cache object
-        var res = await this._ensureCacheLoaded();
+        await this._ensureCacheLoaded();
         this._debug("Initialization done");
         return true;
     }
@@ -76,7 +71,7 @@ class vaccinator {
      * generated app-id. Updates local cache automatically.
      * 
      * @param {string} payload 
-     * @returns {promise}
+     * @returns {promise} pid
      */
     async userNew(payload) {
         if (payload === undefined || payload === "") {
@@ -89,7 +84,9 @@ class vaccinator {
                 var jsonString= JSON.stringify( {
                     op: "add", 
                     data:  that._encrypt(payload, that._getKey(), aid.substr(-2)),
-                    uid: that.userName });
+                    uid: that.userName,
+                    words: that._getSearchWords(payload)
+                } );
                 var post = new FormData();
                 post.append("json", jsonString);
                 var params = { method:"POST",
@@ -132,7 +129,7 @@ class vaccinator {
      * 
      * @param {string} pid
      * @param {string} payload 
-     * @returns {promise}
+     * @returns {promise} pid
      */
     async userUpdate(pid, payload) {
         if (pid === undefined || pid === "" || 
@@ -147,7 +144,9 @@ class vaccinator {
                     op: "update",
                     pid: pid,
                     data:  that._encrypt(payload, that._getKey(), aid.substr(-2)),
-                    uid: that.userName });
+                    uid: that.userName,
+                    words: that._getSearchWords(payload)
+                });
                 var post = new FormData();
                 post.append("json", jsonString);
                 var params = { method:"POST",
@@ -188,7 +187,7 @@ class vaccinator {
      * pids may be multiple pids separated by space " " or as array.
      * 
      * @param {*} pids
-     * @returns {promise}
+     * @returns {promise} pids
      */
     async userDelete(pids) {
         if (pids === undefined || pids === "") {
@@ -255,9 +254,9 @@ class vaccinator {
         // check for the cached pids first
 
         var that = this;
-        var uncached = new Array(); // will get the uncached pids
+        var uncached = []; // will get the uncached pids
         var finalResult = new Object(); // compose result
-        var promises = new Array(); // will hold the promises
+        var promises = []; // will hold the promises
         pids.map(function(pid) {
             // create an array of promises for cache check (use with Promise.all)
             promises.push(that._retrieveCache(pid)
@@ -316,7 +315,7 @@ class vaccinator {
                             // decrypt payloads
                             var data = jsonResult.data;
                             var checksum = that.appId.substr(-2, 2); // current appId checksum
-                            var storePromises = new Array();
+                            var storePromises = [];
                             for (var pid of Object.keys(data)) {
                                 if (data[pid]["status"] === "OK") {
                                     try {
@@ -363,7 +362,7 @@ class vaccinator {
      * pids may be multiple pids separated by space " " or as array.
      * 
      * @param {*} pids
-     * @returns {promise}
+     * @returns {promise} pids
      */
     async userWipe(pids) {
         if (pids === undefined || pids === "") {
@@ -393,7 +392,7 @@ class vaccinator {
      * @param {*} pids
      * @param {string} oldAppId
      * @param {string} newAppId
-     * @returns {promise}
+     * @returns {promise} affectedCount
      */
     async changeAppId(pids, oldAppId, newAppId) {
         if (pids === undefined || pids === "") {
@@ -426,7 +425,7 @@ class vaccinator {
             newVac.setHeaders(that.headers); // duplicate headers to use
             return newVac.init(that.url, that.userName, newAppId, that.password, that.debugging)
             .then(function() {
-                var promises = new Array(); // will hold the promises
+                var promises = []; // will hold the promises
                 for(let i = 0; i < pids.length; i++) {
                     // loop all pids and retrieved content
                     let pid = pids[i];
@@ -461,7 +460,7 @@ class vaccinator {
      * and remember that token.
      * 
      * @param {string} token (optional)
-     * @returns {promise}
+     * @returns {promise} boolean
      */
     async wipeCache(token) {
         var that = this;
@@ -514,6 +513,116 @@ class vaccinator {
             throw(new vaccinatorError("Failed storing wiped cache [" + error + "]", 
                             VACCINATOR_UNKNOWN));
         });
+    }
+    
+    /**
+     * Requests server info from DataVaccinator server.
+     * 
+     * @returns {Promise} array
+     */
+    async getServerInfo() {
+        var that = this;
+        return new Promise(function(resolve, reject) {
+            var jsonString= JSON.stringify( {
+                op: "check",
+                uid: that.userName });
+            var post = new FormData();
+            post.append("json", jsonString);
+            var params = { method:"POST",
+                           body: post,
+                           headers: that.headers
+                         };
+            that._debug("getServerInfo: Protocol call: [" + jsonString + 
+                        "] to url ["+that.url+"]");
+            fetch(that.url, params)
+            .then(function(response) {
+                if (response.status !== 200) {
+                    throw(new vaccinatorError("getServerInfo: URL request failed with status " + 
+                                response.status, VACCINATOR_SERVICE));
+                }
+                return response.json();
+            }).then(function(jsonResult) {
+                if (jsonResult.status === "OK") {
+                    that._debug("getServerInfo: Success");
+                    resolve(jsonResult);
+                } else {
+                    throw(new vaccinatorError("getServerInfo: Result was not OK (Code " +
+                                jsonResult.code+"-" + jsonResult.desc + ")", 
+                                VACCINATOR_SERVICE, jsonResult.code));
+                }
+            }).catch(function(e) {
+                throw(new vaccinatorError("getServerInfo: URL request failed: [" + e + "]", 
+                                VACCINATOR_SERVICE));
+            });
+        });
+    }
+    
+    /**
+     * 
+     * @param {array} fields
+     * @returns {boolean}
+     */
+    enableSearchFunction(fields) {
+        if (fields === undefined) { 
+            fields = []; 
+        }
+        this.searchFields = fields;
+        return true;
+    }
+    
+
+    async search(searchTerm) {
+        var term = "";
+        var words = searchTerm.split(" ");
+        for (var w of words) {
+            term += this._searchHash(w, false) + " ";
+        }
+        term = term.trim(); // remove last space
+        if (term === "") {
+            // no valid search term
+            this._debug("search: Empty search does not trigger a call to server!");
+            return new Promise(function(resolve, reject) {
+                // resolve promise with empty result array
+                resolve( [] );
+            });
+        }
+        
+        var that = this;
+        return new Promise(function(resolve, reject) {
+            var jsonString= JSON.stringify( {
+                op: "search",
+                words: term,
+                uid: that.userName });
+            var post = new FormData();
+            post.append("json", jsonString);
+            var params = { method:"POST",
+                           body: post,
+                           headers: that.headers
+                         };
+            that._debug("search: Protocol call: [" + jsonString + 
+                        "] to url ["+that.url+"]");
+            fetch(that.url, params)
+            .then(function(response) {
+                if (response.status !== 200) {
+                    throw(new vaccinatorError("search: URL request failed with status " + 
+                                response.status, VACCINATOR_SERVICE));
+                }
+                return response.json();
+            }).then(function(jsonResult) {
+                if (jsonResult.status === "OK") {
+                    that._debug("search: Success");
+                    resolve(jsonResult.pids);
+                } else {
+                    throw(new vaccinatorError("search: Result was not OK (Code " +
+                                jsonResult.code+"-" + jsonResult.desc + ")", 
+                                VACCINATOR_SERVICE, jsonResult.code));
+                }
+            }).catch(function(e) {
+                throw(new vaccinatorError("search: URL request failed: [" + e + "]", 
+                                VACCINATOR_SERVICE));
+            });
+        });
+        
     }
     
     /**
@@ -678,7 +787,7 @@ class vaccinator {
     _hash(someString) {
         return forge_sha256(someString);
     }
-
+    
     /**
      * Encrypt some string with given key array using
      * AES in CBC mode (key must me 256 bits).
@@ -843,6 +952,11 @@ class vaccinator {
         });
     }
 
+    /**
+     * Make sure that the local cache is read and actual
+     * 
+     * @returns {boolean}
+     */
     async _ensureCacheLoaded() {
         var that = this;
         if (Object.keys(this.cache).length === 0) {
@@ -865,6 +979,64 @@ class vaccinator {
             that._debug("_ensureCacheLoaded: Cache is loaded");
             resolve(true);
         });
+    }
+    
+    /**
+     * Generates the SearchHash from given word. If withRandom is true,
+     * zero to 5 random bytes are getting added. See search Plugin documentation.
+     * 
+     * @param {string} word
+     * @param {boolean} withRandom (optional)
+     * @returns {string}
+     */
+    _searchHash(word, withRandom) {
+        if (word === "") { return ""; }
+        if (withRandom === undefined) {
+            withRandom = false;
+        }
+        var searchHash = "";
+        // init, see docs
+        var h = "f1748e9819664b324ae079a9ef22e33e9014ffce302561b9bf71a37916c1d2a3";
+        var letters = word.split("");
+        for (var l of letters) {
+            h = this._hash(l.toLowerCase() + h + this.appId);
+            searchHash += h.substr(0, 2);
+        }
+        if (withRandom) {
+            var c = Math.floor(Math.random() * 6);
+            // generate random hex bytes only (0-f), so we need double of c
+            for (let i = 0; i < c*2; ++i) {
+                searchHash += (Math.floor(Math.random() * 16)).toString(16);
+            }
+        }
+        return searchHash;
+    }
+    
+    /**
+     * Generate the array of SearchHash values for DataVaccinator protocol use.
+     * Ued for userNew() and userUpdate() function.
+     * Quickly returns empty array if search functionality is not used.
+     * 
+     * @param {string|object} payload
+     * @returns {array} searchwords
+     */
+    _getSearchWords(payload) {
+        if (this.searchFields.length === 0) {
+            return [];
+        }
+        if (typeof payload === 'string') {
+            // convert to object
+            payload = JSON.parse(payload);
+        }
+        var ret = [];
+        for (var w of this.searchFields) {
+            var value = payload[w];
+            if (value !== "") {
+                ret.push(this._searchHash(value, true));
+            }
+        }
+        this._debug("_getSearchWords: SearchWords are " + JSON.stringify(ret));
+        return ret;
     }
 }
 
