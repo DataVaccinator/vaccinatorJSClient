@@ -1,6 +1,6 @@
 author: Volker Schmid <v.schmid@inspirant.de>
 
-title: Vaccinator Protocol
+title: DataVaccinator JavaScript Class API
 
 Content
 =======
@@ -8,10 +8,10 @@ Content
 JavaScript Client API
 =====================
 
-The Client API is the interface that is provided by the vaccinator
+The Client API is the interface that is provided by the DataVaccinator
 JavaScript API for client software developers.
 
-Include the vaccinator JavaScript API and all needed classes into your
+Include the DataVaccinator JavaScript API and all needed classes into your
 existing application using this in the &lt;head&gt; section:
 
     <!-- start vaccinator include -->
@@ -25,7 +25,7 @@ Now, there is a new class `vaccinator` available.
 
 Please note that the *localforage.min.js* is for local database access,
 the *aes.js* is for AES encryption, the *forge-sha256.min.js* is for
-providing hash algorithm and *vaccinator.js* is the final class code you
+providing hash algorithm and *vaccinator_api.js* is the final class code you
 want to use.
 
 All class functions except the validateAppId() and setHeaders() functions 
@@ -78,7 +78,7 @@ init
   </tbody>
 </table>
 
-userNew
+new
 -------
 
 <table>
@@ -93,20 +93,20 @@ userNew
     </tr>
     <tr class="even">
       <td>Parameters:</td>
-      <td>(string) payload</td>
+      <td>(string) vaccinationData</td>
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td>(promise) (string) PID</td>
+      <td>(promise) (string) VID</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td>The <code>payload</code> is some JSON encoded dataset. It may contain personal information of a person. This is then returned later by <code>userGet</code>.</td>
+      <td>The <code>vaccinationData</code> is some JSON encoded dataset. It may contain personal information of a person. This is then returned later by <code>get</code>.</td>
     </tr>
   </tbody>
 </table>
 
-userUpdate
+update
 ----------
 
 <table>
@@ -117,25 +117,25 @@ userUpdate
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td>Update an existing user entry.</td>
+      <td>Update vaccinationData of an existing user entry.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
-      <td>(string) PID, (string) payload</td>
+      <td>(string) VID, (string) vaccinationData</td>
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td>(promise) (string) PID</td>
+      <td>(promise) (string) VID</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td><p>The <code>PID</code> is the identifying person ID (for example, previously returned by userNew).</p>
-        <p>The <code>payload</code> is some JSON encoded dataset. It may contain personal information of a person.</p></td>
+      <td><p>The <code>VID</code> is the identifying Vaccination ID (for example, previously returned by new).</p>
+        <p>The <code>vaccinationData</code> is some JSON encoded dataset. It may contain personal information of a person.</p></td>
     </tr>
   </tbody>
 </table>
 
-userGet
+get
 -------
 
 <table>
@@ -146,20 +146,20 @@ userGet
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td>Retrieve the payload of a given user entry.</td>
+      <td>Retrieve the vaccinationData of a given user entry.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
-      <td>(array) multiple PIDs or (string) PID</td>
+      <td>(array) multiple VIDs or (string) VID</td>
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td>(promise) (object array) payload</td>
+      <td>(promise) (object array) vaccinationData</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td><p>The submitted <code>PID</code> is the identifying person ID (previously returned by userNew). Multiple PIDs can be submitted as array with multiple PIDs or a string with multiple PIDs divided by blank.</p>
-        <p>The returned payload is an associative object array with the <code>PID</code> as key and some object as value. The value object is having two fields: <code>status</code> (OK or NOTFOUND) and <code>data</code> (the payload). If <code>status</code> is NOTFOUND, data is false.</p>
+      <td><p>The submitted <code>VID</code> is the identifying Vaccination ID (previously returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.</p>
+        <p>The returned payload is an associative object array with the <code>VID</code> as key and some object as value. The value object is having two fields: <code>status</code> (OK or NOTFOUND) and <code>data</code> (the Vaccination Data). If <code>status</code> is NOTFOUND, data is false.</p>
         <p>This is a typical object array response like displayed in Firefox console:</p>
         <pre><code>0d52f1b0a314fba7d45e87ca5bf5e654:
   Object { status: &quot;OK&quot;, 
@@ -180,7 +180,7 @@ fb9a6fd4c504878b2a76d9e78af795bb:
   </tbody>
 </table>
 
-userDelete
+delete
 ----------
 
 <table>
@@ -195,20 +195,20 @@ userDelete
     </tr>
     <tr class="even">
       <td>Parameters:</td>
-      <td>(array) multiple PIDs or (string) PID</td>
+      <td>(array) multiple VIDs or (string) VID</td>
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td>(promise) (array) PID(s)</td>
+      <td>(promise) (array) VID(s)</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td>The <code>PID</code> is the identifying person ID (for example, returned by userNew). Multiple PIDs can be submitted as array with multiple PIDs or a string with multiple PIDs divided by blank.</td>
+      <td>The <code>VID</code> is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.</td>
     </tr>
   </tbody>
 </table>
 
-userWipe
+wipe
 --------
 
 <table>
@@ -219,19 +219,19 @@ userWipe
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td>Wipe the given user entry from the local cache (does not delete data from vaccinator service!)</td>
+      <td>Wipe the given user entry from the local cache (does not delete data from DataVaccinator service!)</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
-      <td>(array) multiple PIDs or (string) PID</td>
+      <td>(array) multiple VIDs or (string) VID</td>
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td>(promise) (array) PID(s)</td>
+      <td>(promise) (array) VID(s)</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td>The <code>PID</code> is the identifying person ID (for example, returned by userNew). Multiple PIDs can be submitted as array with multiple PIDs or a string with multiple PIDs divided by blank. Please note that, if the <code>PID</code> is requested after this was called, the system will request it again from the vaccinator service and will update the cache. A possible use case is, if you know that the local cache is outdated for this <code>PID</code>, you can force the system to refresh its cache by wiping the user with this function.</td>
+      <td>The <code>VID</code> is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. Please note that, if the <code>VID</code> is requested after this was called, the system will request it again from the DataVaccinator service and will update the cache. A possible use case is, if you know that the local cache is outdated for this <code>VID</code>, you can force the system to refresh its cache by wiping the user with this function.</td>
     </tr>
   </tbody>
 </table>
@@ -259,9 +259,22 @@ wipeCache
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td><p>This wipes all local cached information. In case the given token (eg time stamp) is different to the one used before, or even unset or empty, it will wipe the cache. There are two use-cases:</p>
-        <p>1) If the service provider is sending a time stamp (refer to &quot;update person&quot; vaccinator protocol function). In this case, call wipeCache() with the given time stamp as token. If the token differs from last time, this function will wipe the whole cache. New requests will restore the cache step by step. By this, your local cache is always up to date.</p>
-        <p>2) If the application was used in Internet café or other security concerns are against permanent local caching (please note that the caching massively increases speed of the whole system). After the cache was wiped, all data has to become requested from the vaccinator service again if requested. Thus, please call this function (if needed) with no token regularly after logout (in this situation).</p></td>
+      <td>
+        <p>This wipes all local cached information. In case the given token (eg 
+          time stamp) is different to the one used before, or even unset or empty, 
+          it will wipe the cache. There are two use-cases:</p>
+        <p>1) If the service provider is sending a time stamp (refer to &quot;update&quot; 
+          vaccinator protocol function). In this case, call wipeCache() with the 
+          given time stamp as token. If the token differs from last time, this 
+          function will wipe the whole cache. New requests will restore the 
+          cache step by step. By this, your local cache is always up to date.</p>
+        <p>2) If the application was used in Internet café or other security 
+          concerns are against permanent local caching (please note that the 
+          caching massively increases speed of the whole system). After the 
+          cache was wiped, all data has to become requested from the vaccinator 
+          service again if requested. Thus, please call this function (if 
+          needed) with no token regularly after logout (in this situation).</p>
+      </td>
     </tr>
   </tbody>
 </table>
@@ -277,11 +290,11 @@ changeAppId
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td>This is trying to re-encode all payloads after the app-id has changed.</td>
+      <td>This is trying to re-encode all Vaccination Data after the app-id has changed.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
-      <td>(array) PIDs, (string) old app-id, (string) new app-id</td>
+      <td>(array) VIDs, (string) old app-id, (string) new app-id</td>
     </tr>
     <tr class="odd">
       <td>Return value:</td>
@@ -294,16 +307,16 @@ changeAppId
           identity management need to become re-encrypted. Obviously, this is not to
           be done on identity management place to protect the data. So it must be
           done locally.</p>
-        <p>For this, the API class downloads and decrypts all payloads. Then it logs
-          out initializes again with the new app-id. Then, all payloads are getting
+        <p>For this, the API class downloads and decrypts all Vaccination Data. Then it logs
+          out initializes again with the new app-id. Then, all Vaccination Data is getting
           encrypted and updated.</p>
         <p>The function also updates local cache. If you do not want all the data
-          stay here, either use userWipe() to remove specific items or wipeCache()
+          stay here, either use wipe() to remove specific items or wipeCache()
           to cleanup all cached items.</p>
         <p>After the function ran, the <code>new app-id</code> is the current app-id
           and overlays the app-id given during initialization.</p>
-        <p><code>PIDs</code> is one or more PIDs. Please submit as array. This list
-          has to be complete! In doubt, make sure you have the list of ALL PIDs for
+        <p><code>VIDs</code> is one or more VIDs. Please submit as array. This list
+          has to be complete! In doubt, make sure you have the list of ALL VIDs for
           this app-id.</p>
         <p><code>old app-id</code> and <code>new app-id</code> are the old and new
           app-id to use for re-encryption.</p>
@@ -311,15 +324,15 @@ changeAppId
           affected. Until the promise is fulfilled you should show some &quot;please 
           wait&quot; dialogue to tell the user that something is going on in the
           background.</p>
-        <p><strong>NOTE:</strong> It is important that this call contains ALL PIDs 
-          assigned to the given app-id. If not, some data in vaccinator service may
+        <p><strong>NOTE:</strong> It is important that this call contains ALL VIDs 
+          assigned to the given app-id. If not, some data in DataVaccinator service may
           stay encrypted with the old app-id. In the worst case, this would cause 
           serious data loss.</p>
         <p><strong>NOTE:</strong>In case this function was interrupted, there is a 
-          chance that some entries in vaccinator service may be encrypted with the 
+          chance that some entries in DataVaccinator service may be encrypted with the 
           new app-id and other still with the old one. The API is making sure that 
-          only payloads encrypted with the old app-id get re-encrypted (by using the
-          cs value from the payload). By this, it is possible to call this function
+          only Vaccination Data encrypted with the old app-id get re-encrypted (by using the
+          <code>cs</code> value from the payload). By this, it is possible to call this function
           multiple times (with exactly the same parameters) to fix any previous
           interruption.</p></td>
     </tr>
@@ -443,8 +456,7 @@ setHeaders
     <tr class="even">
       <td>Info:</td>
       <td>This is added as headers value in fetch calls. Use directly after calling init():
-      <pre><code>
-var v = new vaccinator();
+      <pre><code>var v = new vaccinator();
 v.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "password", true)
 .then(function() {
   v.setHeaders( { 'Cache-Control': 'max-age=60' } );
@@ -482,7 +494,7 @@ enableSearchFunction
         <p>Here you submit an array of field names to be used for search
           function. If your payload contains values for the given fields, they
           will get uploaded as SearchHash to the DataVaccinator server. This
-          then allows you to find the assigned PIDs using the "search" function.
+          then allows you to find the assigned VIDs using the "search" function.
         <p>To disable the feature, submit an empty array or no parameter.</p>
         <p><strong>Note:</strong>This only works if the payload given in "add"
         or "update" calls is a valid JSON string!</p>
@@ -510,7 +522,7 @@ search
     </tr>
     <tr class="odd">
       <td>Return value:</td>
-      <td>(promise) (array) PID(s)</td>
+      <td>(promise) (array) VID(s)</td>
     </tr>
     <tr class="even">
       <td>Info:</td>
@@ -521,10 +533,12 @@ search
         <p>Search words do not have to be complete and case does not matter. The
           search always begins on the left and returns all matches there.
           Thus, you can simply enter "joh foo" to find John Foobar.</p>
-        <p><strong>Note:</strong>This only works if the "enableSearchFunction"
+        <p><strong>Note:</strong> This only works if the "enableSearchFunction"
         was called before using "add" or "update" calls. You can only search
         for entries that were pushed or updated with search function
         enabled.</p>
+        <p><strong>Note:</strong> This only works if the DataVaccinator service
+          activated the "search" plugin. If not, you will get EC_MISSING_PARAMETERS.</p>
       </td>
     </tr>
   </tbody>

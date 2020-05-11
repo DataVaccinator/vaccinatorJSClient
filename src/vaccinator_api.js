@@ -34,7 +34,7 @@ class vaccinator {
         if (debugMode !== undefined) { this.debugging = debugMode; }
 
         if (!localforage.supports(localforage.INDEXEDDB)) {
-            throw (new vaccinatorError("Please use an up to date webbrowser (no IndexedDB supported)", 
+            throw (new vaccinatorError("init: please use an up to date webbrowser (no IndexedDB supported)", 
                                   VACCINATOR_UNKNOWN));
         }
         
@@ -67,15 +67,15 @@ class vaccinator {
     }
 
     /**
-     * Pushes new payload to vaccinator service and returns
+     * Pushes new vData to vaccinator service and returns
      * generated app-id. Updates local cache automatically.
      * 
-     * @param {string} payload 
-     * @returns {promise} pid
+     * @param {string} vData 
+     * @returns {promise} vid
      */
-    async userNew(payload) {
-        if (payload === undefined || payload === "") {
-            throw (new vaccinatorError("userNew: payload parameter is mandatory",
+    async new(vData) {
+        if (vData === undefined || vData === "") {
+            throw (new vaccinatorError("userNew: vData parameter is mandatory",
                     VACCINATOR_INVALID));
         }
         var that = this;
@@ -83,9 +83,9 @@ class vaccinator {
             that.getAppId().then(function(aid) {
                 var jsonString= JSON.stringify( {
                     op: "add", 
-                    data:  that._encrypt(payload, that._getKey(), aid.substr(-2)),
+                    data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
                     uid: that.userName,
-                    words: that._getSearchWords(payload)
+                    words: that._getSearchWords(vData)
                 } );
                 var post = new FormData();
                 post.append("json", jsonString);
@@ -105,9 +105,9 @@ class vaccinator {
                 })
                 .then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
-                        that._storeCache(jsonResult.pid, payload)
+                        that._storeCache(jsonResult.pid, vData)
                         .then(function() {
-                           that._debug("userNew: Returning new PID ["+jsonResult.pid+"]");
+                           that._debug("userNew: Returning new VID ["+jsonResult.pid+"]");
                            resolve(jsonResult.pid); 
                         });
                     } else {
@@ -124,17 +124,17 @@ class vaccinator {
     }
 
     /**
-     * Updates new payload to vaccinator service and returns
-     * pid app-id. Updates local cache automatically.
+     * Updates new vData to vaccinator service and returns
+     * vid. Updates local cache automatically.
      * 
-     * @param {string} pid
-     * @param {string} payload 
-     * @returns {promise} pid
+     * @param {string} vid
+     * @param {string} vData 
+     * @returns {promise} vid
      */
-    async userUpdate(pid, payload) {
-        if (pid === undefined || pid === "" || 
-            payload === undefined || payload === "") {
-            throw (new vaccinatorError("userUpdate: pid and payload parameter are mandatory",
+    async update(vid, vData) {
+        if (vid === undefined || vid === "" || 
+            vData === undefined || vData === "") {
+            throw (new vaccinatorError("userUpdate: vid and vData parameter are mandatory",
                     VACCINATOR_INVALID));
         }
         var that = this;
@@ -142,10 +142,10 @@ class vaccinator {
             that.getAppId().then(function(aid) {
                 var jsonString= JSON.stringify( {
                     op: "update",
-                    pid: pid,
-                    data:  that._encrypt(payload, that._getKey(), aid.substr(-2)),
+                    pid: vid,
+                    data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
                     uid: that.userName,
-                    words: that._getSearchWords(payload)
+                    words: that._getSearchWords(vData)
                 });
                 var post = new FormData();
                 post.append("json", jsonString);
@@ -164,9 +164,9 @@ class vaccinator {
                     return response.json();
                 }).then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
-                        that._storeCache(pid, payload).then(function() {
-                            that._debug("userUpdate: Returning updated PID ["+pid+"]");
-                            resolve(pid);
+                        that._storeCache(vid, vData).then(function() {
+                            that._debug("userUpdate: Returning updated VID ["+vid+"]");
+                            resolve(vid);
                         });
                     } else {
                         throw(new vaccinatorError("userUpdate: Result was not OK (Code " +
@@ -184,25 +184,25 @@ class vaccinator {
     /**
      * Deletes from vaccinator service and also from local cache. 
      * TAKE CARE: The data is finally removed then!
-     * pids may be multiple pids separated by space " " or as array.
+     * vids may be multiple vids separated by space " " or as array.
      * 
-     * @param {*} pids
-     * @returns {promise} pids
+     * @param {(string|string[])} vids
+     * @returns {promise} vids
      */
-    async userDelete(pids) {
-        if (pids === undefined || pids === "") {
-            throw (new vaccinatorError("userDelete: pids parameter is mandatory",
+    async delete(vids) {
+        if (vids === undefined || vids === "") {
+            throw (new vaccinatorError("userDelete: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
-        if (!Array.isArray(pids)) { pids = pids.split(" "); }
+        if (!Array.isArray(vids)) { vids = vids.split(" "); }
 
-        // TODO: chunk requests with more than 500 PIDs
+        // TODO: chunk requests with more than 500 VIDs
 
         var that = this;
         return new Promise(function(resolve, reject) {
             var jsonString= JSON.stringify( {
                 op: "delete",
-                pid: pids.join(" "),
+                pid: vids.join(" "),
                 uid: that.userName });
             var post = new FormData();
             post.append("json", jsonString);
@@ -222,8 +222,8 @@ class vaccinator {
             }).then(function(jsonResult) {
                 if (jsonResult.status === "OK") {
                     that._debug("userDelete: Success");
-                    return that._removeCache(pids).then(function() {
-                        resolve(pids);
+                    return that._removeCache(vids).then(function() {
+                        resolve(vids);
                     });
                 } else {
                     throw(new vaccinatorError("userDelete: Result was not OK (Code " +
@@ -238,37 +238,37 @@ class vaccinator {
     }
 
     /**
-     * Get payload from vaccinator service.
-     * pids may be multiple pids separated by space " " or as array.
+     * Get vData from vaccinator service.
+     * vids may be multiple vids separated by space " " or as array.
      * 
-     * @param {*} pids
+     * @param {(string|string[])} vids
      * @returns {string}
      */
-    async userGet(pids) {
-        if (pids === undefined || pids === "") {
-            throw (new vaccinatorError("userGet: pid parameter is mandatory",
+    async get(vids) {
+        if (vids === undefined || vids === "") {
+            throw (new vaccinatorError("userGet: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
-        if (!Array.isArray(pids)) { pids = pids.split(" "); }
+        if (!Array.isArray(vids)) { vids = vids.split(" "); }
 
-        // check for the cached pids first
+        // check for the cached vids first
 
         var that = this;
-        var uncached = []; // will get the uncached pids
+        var uncached = []; // will get the uncached vids
         var finalResult = new Object(); // compose result
         var promises = []; // will hold the promises
-        pids.map(function(pid) {
+        vids.map(function(vid) {
             // create an array of promises for cache check (use with Promise.all)
-            promises.push(that._retrieveCache(pid)
-            .then(function(payload) {
-                if (payload === null || payload === undefined) {
-                    uncached.push(pid);
-                    that._debug("userGet: Add pid ["+pid+"] for getting from server");
+            promises.push(that._retrieveCache(vid)
+            .then(function(vData) {
+                if (vData === null || vData === undefined) {
+                    uncached.push(vid);
+                    that._debug("userGet: Add vid ["+vid+"] for getting from server");
                     return;
                 }
-                that._debug("userGet: Retrieve cached payload for pid ["+pid+"]");
-                var r = {"status": "OK", "data": payload};
-                finalResult[pid] = r;
+                that._debug("userGet: Retrieve cached vData for vid ["+vid+"]");
+                var r = {"status": "OK", "data": vData};
+                finalResult[vid] = r;
                 return;
             }));
         });
@@ -276,23 +276,23 @@ class vaccinator {
         return Promise.all(promises)
         .then(function() {
 
-            // Retrieve missing PIDs from server
+            // Retrieve missing VIDs from server
             
-            var requestPids = uncached.join(" ");
-            if (requestPids === "") {
+            var requestVIDs = uncached.join(" ");
+            if (requestVIDs === "") {
                 // nothing to get from vaccinator service (all from cache)
                 return new Promise(function(resolve, reject) {
                     resolve(finalResult);
                 });
             }
 
-            // TODO: chunk requests with more than 500 PIDs
+            // TODO: chunk requests with more than 500 VIDs
 
             return new Promise(function(resolve, reject) {
                 that.getAppId().then(function(aid) {
                     var jsonString= JSON.stringify( {
                         op: "get",
-                        pid: requestPids,
+                        pid: requestVIDs,
                         uid: that.userName });
                     var post = new FormData();
                     post.append("json", jsonString);
@@ -311,28 +311,28 @@ class vaccinator {
                         return response.json();
                     }).then(function(jsonResult) {
                         if (jsonResult.status === "OK") {
-                            that._debug("userGet: Successfully received payloads. Processing...");
-                            // decrypt payloads
+                            that._debug("userGet: Successfully received vData. Processing...");
+                            // decrypt vData
                             var data = jsonResult.data;
                             var checksum = that.appId.substr(-2, 2); // current appId checksum
                             var storePromises = [];
-                            for (var pid of Object.keys(data)) {
-                                if (data[pid]["status"] === "OK") {
+                            for (var vid of Object.keys(data)) {
+                                if (data[vid]["status"] === "OK") {
                                     try {
-                                        data[pid]["data"] = that._decrypt(data[pid]["data"], 
+                                        data[vid]["data"] = that._decrypt(data[vid]["data"], 
                                                                           that._getKey(), 
                                                                           checksum);
                                         // update local cache
-                                        storePromises.push(that._storeCache(pid, data[pid]["data"]));
+                                        storePromises.push(that._storeCache(vid, data[vid]["data"]));
                                     } catch (e) {
                                         // very likely the checksum did not match!
-                                        console.error("Unable to decrypt payload ["+pid+
+                                        console.error("Unable to decrypt vData ["+vid+
                                                 "] because used appId seems not the correct one or "+
                                                 "some crypto error occured! "+
                                                 "Origin error: [" + e.toString() + "]");
                                         // cleanup failing dataset
-                                        data[pid]["status"] = "ERROR";
-                                        data[pid]["data"] = false;
+                                        data[vid]["status"] = "ERROR";
+                                        data[vid]["data"] = false;
                                     }
                                 }
                             };
@@ -358,44 +358,44 @@ class vaccinator {
     }
 
     /**
-     * Wipes the cache entry for the given PID(s).
-     * pids may be multiple pids separated by space " " or as array.
+     * Wipes the cache entry for the given VID(s).
+     * vids may be multiple vids separated by space " " or as array.
      * 
-     * @param {*} pids
-     * @returns {promise} pids
+     * @param {(string|string[])} vids
+     * @returns {promise} vids
      */
-    async userWipe(pids) {
-        if (pids === undefined || pids === "") {
-            throw (new vaccinatorError("userWipe: pids parameter is mandatory",
+    async wipe(vids) {
+        if (vids === undefined || vids === "") {
+            throw (new vaccinatorError("userWipe: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
-        if (!Array.isArray(pids)) { pids = pids.split(" "); }
+        if (!Array.isArray(vids)) { vids = vids.split(" "); }
 
         var that = this;
         return new Promise(function(resolve, reject) {
-            that._removeCache(pids).then(function() {
-                resolve(pids);
+            that._removeCache(vids).then(function() {
+                resolve(vids);
             });
         });
     }
     
     /**
-     * This is trying to re-encode all given payloads after the app-id has changed.
+     * This is trying to re-encode all given vData after the app-id has changed.
      * The function also updates local cache. If you do not want all the data stay
      * here, either use userWipe() to remove specific items or wipeCache() to
      * cleanup all.
      * After the function ran, the newAppId is the current class app-id and overlays
      * the app-id given during initialization.
      * 
-     * pids may be multiple pids separated by space " " or as array.
+     * vids may be multiple vids separated by space " " or as array.
      * 
-     * @param {*} pids
+     * @param {(string|string[])} vids
      * @param {string} oldAppId
      * @param {string} newAppId
      * @returns {promise} affectedCount
      */
-    async changeAppId(pids, oldAppId, newAppId) {
-        if (pids === undefined || pids === "") {
+    async changeAppId(vids, oldAppId, newAppId) {
+        if (vids === undefined || vids === "") {
             throw (new vaccinatorError("changeAppId: pids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
@@ -413,11 +413,11 @@ class vaccinator {
                     VACCINATOR_INVALID));
         }
         
-        if (!Array.isArray(pids)) { pids = pids.split(" "); }
+        if (!Array.isArray(vids)) { vids = vids.split(" "); }
         
         var that = this;
-        return this.userGet(pids).then(function(payloadArray) {
-            // payloadArray should contain absolut all payloads to
+        return this.get(vids).then(function(vDataArray) {
+            // vDataArray should contain absolut all vData to
             // re-encrypt
             
             // create new vaccinator class with new AppId
@@ -426,27 +426,27 @@ class vaccinator {
             return newVac.init(that.url, that.userName, newAppId, that.password, that.debugging)
             .then(function() {
                 var promises = []; // will hold the promises
-                for(let i = 0; i < pids.length; i++) {
-                    // loop all pids and retrieved content
-                    let pid = pids[i];
-                    if (payloadArray[pid]["status"] === "OK") {
-                        that._debug("Store new dataset for ["+pid+"]");
-                        promises.push(newVac.userUpdate(pid, payloadArray[pid]["data"])
-                            .then(function (pid) {
-                               return pid; 
+                for(let i = 0; i < vids.length; i++) {
+                    // loop all vids and retrieved content
+                    let vid = vids[i];
+                    if (vDataArray[vid]["status"] === "OK") {
+                        that._debug("Store new dataset for ["+vid+"]");
+                        promises.push(newVac.update(vid, vDataArray[vid]["data"])
+                            .then(function (vid) {
+                               return vid; 
                             })
                         );
                     } else {
-                        that._debug("Failed retrieving payload for PID [" + pid + "] (no data?).");
+                        that._debug("Failed retrieving vData for VID [" + vid + "] (no data?).");
                     }
                 }
                 return Promise.all(promises)
-                .then(function(pids) {
+                .then(function(vids) {
                     newVac = null; // destroy instance
                     // from now on, the new appId must get used:
                     return that._saveAppId(newAppId)
                     .then(function() {
-                       return pids.length;
+                       return vids.length;
                     });
                 });
                 
@@ -558,8 +558,9 @@ class vaccinator {
     }
     
     /**
+     * Enable search functionality using given vData fields.
      * 
-     * @param {array} fields
+     * @param {string[]} fields
      * @returns {boolean}
      */
     enableSearchFunction(fields) {
@@ -570,7 +571,12 @@ class vaccinator {
         return true;
     }
     
-
+    /**
+     * Search DataVaccinator service for entries matching given search words
+     * 
+     * @param {string} searchTerm 
+     * @returns {Promise} vids
+     */
     async search(searchTerm) {
         var term = "";
         var words = searchTerm.split(" ");
@@ -751,7 +757,7 @@ class vaccinator {
      * byte length. Uses Math.random()!
      * 
      * @param {int} bytes
-     * @returns  {Array}
+     * @returns {Array}
      */
     _generateRandom(bytes) {
         return Array.from({length: bytes}, () => Math.floor(Math.random() * 255));
@@ -888,21 +894,21 @@ class vaccinator {
     /**
      * Store data in cache
      * 
-     * @param {string} pid 
-     * @param {string} payload 
+     * @param {string} vid 
+     * @param {string} vData 
      * @returns {boolean}
      */
-    async _storeCache(pid, payload) {
+    async _storeCache(vid, vData) {
         var that = this;
         return this._ensureCacheLoaded()
         .then(function() {
-            var dbKey = that._hash(pid);
-            that._debug("_storeCache: Storing payload for PID " + pid + " in cache");
-            that.cache[dbKey] = payload;
-            return localforage.setItem("payload", that.cache).then(function (value) {
+            var dbKey = that._hash(vid);
+            that._debug("_storeCache: Storing vData for VID " + vid + " in cache");
+            that.cache[dbKey] = vData;
+            return localforage.setItem("vData", that.cache).then(function (value) {
                 return true;
             }).catch(function (error) {
-                throw(new vaccinatorError("_storeCache: Failed storing payload (store) [" + 
+                throw(new vaccinatorError("_storeCache: Failed storing vData (store) [" + 
                                           error + "]", VACCINATOR_UNKNOWN));
             });
         });
@@ -911,15 +917,15 @@ class vaccinator {
     /**
      * Getdata from cache. Will return null if not found!
      * 
-     * @param {string} pid 
+     * @param {string} vid 
      * @returns {string}
      */
-    async _retrieveCache(pid) {
+    async _retrieveCache(vid) {
         var that = this;
         return this._ensureCacheLoaded()
         .then(function() {
-            var dbKey = that._hash(pid);
-            that._debug("_retrieveCache: Retrieve payload for PID " + pid + 
+            var dbKey = that._hash(vid);
+            that._debug("_retrieveCache: Retrieve vData for VID " + vid + 
                         " from cache");
             // use cache object
             return new Promise(function(resolve, reject) {
@@ -931,19 +937,19 @@ class vaccinator {
     /**
      * Removes one given entry from the cache
      * 
-     * @param {array} pids
+     * @param {array} vids
      * @returns {boolean}
      */
-    async _removeCache(pids) {
+    async _removeCache(vids) {
         var that = this;
         return this._ensureCacheLoaded().then(function() {
-            pids.forEach(function(item, index) {
+            vids.forEach(function(item, index) {
                 var dbKey = that._hash(item);
                 delete that.cache[dbKey];
             });
             return localforage.setItem("payload", that.cache).then(function (value) {
-                that._debug("_removeCache: Removed payload for PID(s) " + 
-                            JSON.stringify(pids) + " from cache");
+                that._debug("_removeCache: Removed payload for VID(s) " + 
+                            JSON.stringify(vids) + " from cache");
                 return true;
             }).catch(function (error) {
                 throw(new vaccinatorError("_removeCache: Failed storing payload (remove) [" + 
@@ -1017,20 +1023,20 @@ class vaccinator {
      * Ued for userNew() and userUpdate() function.
      * Quickly returns empty array if search functionality is not used.
      * 
-     * @param {string|object} payload
+     * @param {string|object} vData
      * @returns {array} searchwords
      */
-    _getSearchWords(payload) {
+    _getSearchWords(vData) {
         if (this.searchFields.length === 0) {
             return [];
         }
-        if (typeof payload === 'string') {
+        if (typeof vData === 'string') {
             // convert to object
-            payload = JSON.parse(payload);
+            vData = JSON.parse(vData);
         }
         var ret = [];
         for (var w of this.searchFields) {
-            var value = payload[w];
+            var value = vData[w];
             if (value !== "") {
                 ret.push(this._searchHash(value, true));
             }
@@ -1038,6 +1044,16 @@ class vaccinator {
         this._debug("_getSearchWords: SearchWords are " + JSON.stringify(ret));
         return ret;
     }
+
+    // Compatibility function calls to provide compatibility with
+    // existing applications
+    // May 2020
+    async userNew(vData) { return this.new(vData); }
+    async userUpdate(vid, vData) { return this.update(vid, vData); }
+    async userDelete(vids) { return this.delete(vids); }
+    async userGet(vids) { return this.get(vids); }
+    async userWipe(vids) { return this.wipe(vids); }
+
 }
 
 const VACCINATOR_SERVICE = 0; // error is related to vaccinator service

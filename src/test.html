@@ -18,79 +18,79 @@
     <script>
       const appid = "Rc-De_6nyCbb"; // Adapt to your needs. My APP-ID was 123456789
       
-      test(); // call testing function (must be a function because of async)
+      example(); // call testing function (must be a function because of async)
       
-      async function test() {
+      async function example() {
         try {
-          var a = new vaccinator();
-          await a.init("http://vaccinator.vsdevel.de.regify.com/service.php", 
+          var v = new vaccinator();
+          await v.init("http://vaccinator.vsdevel.de.regify.com/service.php", 
                                "volker", appid, "password", true);
 
           // !!! Set some additional header for all network calls
-          a.setHeaders( { 'Cache-Control': 'max-age=60' } );
+          v.setHeaders( { 'Cache-Control': 'max-age=60' } );
           
-          // !!! Enable search function using "firstname" payload field
-          a.enableSearchFunction( [ "firstname", "lastname" ] );
+          // !!! Enable search function using "firstname" vData field
+          v.enableSearchFunction( [ "firstname", "lastname" ] );
           
           // !!! Get some info from the server
-          const serverInfo = await a.getServerInfo();
+          const serverInfo = await v.getServerInfo();
           console.log("Server-Info: " + JSON.stringify(serverInfo));
 
-          // !!! Create test data payload
-          var payload = '';
-          payload = '{"firstname":"Spongebob","lastname":"Squarepants", '+
-                    '"Gender":"male","address_street":"Bikini Street", '+
-                    '"address_number":"42","address_city":"Bikini Bottom", '+
-                    '"address_zip":"12345", "address_country":"Bikiniland", '+
-                    '"address_phone":"","address_mail":"spongebob@bikinibottom.water", '+
-                    '"company_location":"Crusty Krab", "date_og_birth":"01.02.1992", '+
-                    '"profession":"Fry Cook", "attending_physician":"Sandy Cheeks"'+
-                    '}';
+          // !!! Create test data vData
+          var vData = '';
+          vData = '{"firstname":"Spongebob","lastname":"Squarepants", '+
+                  '"Gender":"male","address_street":"Bikini Street", '+
+                  '"address_number":"42","address_city":"Bikini Bottom", '+
+                  '"address_zip":"12345", "address_country":"Bikiniland", '+
+                  '"address_phone":"","address_mail":"spongebob@bikinibottom.water", '+
+                  '"company_location":"Crusty Krab", "date_og_birth":"01.02.1992", '+
+                  '"profession":"Fry Cook", "attending_physician":"Sandy Cheeks"'+
+                  '}';
 
-          // !!! test userNew() function
-          var pid = await a.userNew(payload);  
-          console.log("The new user PID is " + pid);
+          // !!! test new() function
+          var vid = await v.new(vData);  
+          console.log("The new user VID is " + vid);
 
-          // !!! test userUpdate() function
-          payload = '{"firstname":"Patrick","lastname":"Star"}';
-          pid = await a.userUpdate(pid, payload);
+          // !!! test update() function
+          vData = '{"firstname":"Patrick","lastname":"Star"}';
+          vid = await v.update(vid, vData);
 
-          console.log("Successfully updated PID " + pid);
+          console.log("Successfully updated VID " + vid);
 
-          // !!! test userWipe() function
-          var pids = await a.userWipe(pid + " " + "dc2520e55dbc02d44a6ebc160cbffa62");
+          // !!! test wipe() function
+          var vids = await v.wipe(vid + " " + "dc2520e55dbc02d44a6ebc160cbffa62");
           console.log("Wiped user data from cache (force reload)");
 
-          // !!! test userGet() function
-          // use some unknown PID to simulate "not found" and trigger vaccinator call
-          var toGet = [ pids[0], "0d52f1b0a314fba7d45e87ca5bf5e654" ];
-          var payloadArray = await a.userGet(toGet);
-          console.log("Successfully received payloads object array:");
-          console.log(payloadArray);
+          // !!! test get() function
+          // use some unknown VID to simulate "not found" and trigger vaccinator call
+          var toGet = [ vids[0], "0d52f1b0a314fba7d45e87ca5bf5e654" ];
+          var vDataArray = await v.get(toGet);
+          console.log("Successfully received vData object array:");
+          console.log(vDataArray);
           
           // !!! test search() function
-          pids = await a.search("pat");
-          console.log("Found using 'pat': " + JSON.stringify(pids));
-          if (pids.length !== 1) { console.error("Wrong number of results!"); }
-          pids = await a.search("nonsense");
-          console.log("Found using 'nonsense': " + JSON.stringify(pids));
-          if (pids.length !== 0) { console.error("Wrong number of results!"); }
-          pids = await a.search("patr sta");
-          console.log("Found using 'patr sta': " + JSON.stringify(pids));
-          if (pids.length !== 1) { console.error("Wrong number of results!"); }
-          pids = await a.search("patr tes");
-          console.log("Found using 'patr tes': " + JSON.stringify(pids));
-          if (pids.length !== 0) { console.error("Wrong number of results!"); }
+          vids = await v.search("pat");
+          console.log("Found using 'pat': " + JSON.stringify(vids));
+          if (vids.length !== 1) { console.error("Wrong number of results!"); }
+          vids = await v.search("nonsense");
+          console.log("Found using 'nonsense': " + JSON.stringify(vids));
+          if (vids.length !== 0) { console.error("Wrong number of results!"); }
+          vids = await v.search("patr sta");
+          console.log("Found using 'patr sta': " + JSON.stringify(vids));
+          if (vids.length !== 1) { console.error("Wrong number of results!"); }
+          vids = await v.search("patr tes");
+          console.log("Found using 'patr tes': " + JSON.stringify(vids));
+          if (vids.length !== 0) { console.error("Wrong number of results!"); }
 
-          // !!! test userDelete() function
-          pids = await a.userDelete(pid);
-          console.log("Successfully removed the entry for user(s) " + JSON.stringify(pids));
+          // !!! test delete() function
+          vids = await v.delete(vid);
+          console.log("Successfully removed the entry for user(s) " + JSON.stringify(vids));
 
           // !!! test wipeCache() function
           // A weekday token will force the cache to become
           // wiped every day (just as an example).
           const token = "token-weekday-" + new Date().getDay();
-          var cacheWiped = await a.wipeCache(token);
+          var cacheWiped = await v.wipeCache(token);
           if (cacheWiped) {
             console.log("Cache wiped");
           } else {
