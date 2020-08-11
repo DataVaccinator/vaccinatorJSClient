@@ -29,8 +29,8 @@
           // !!! Set some additional header for all network calls
           v.setHeaders( { 'Cache-Control': 'max-age=60' } );
           
-          // !!! Enable search function using "firstname" vData field
-          v.enableSearchFunction( [ "firstname", "lastname" ] );
+          // !!! Enable search function using some vData fields
+          v.enableSearchFunction( [ "firstname", "lastname", "address_street" ] );
           
           // !!! Get some info from the server
           const serverInfo = await v.getServerInfo();
@@ -38,8 +38,8 @@
 
           // !!! Create test data vData
           var vData = '';
-          vData = '{"firstname":"Spongebob","lastname":"Squarepants", '+
-                  '"Gender":"male","address_street":"Bikini Street", '+
+          vData = '{"firstname":"Spongebob","lastname":"Square Pants", '+
+                  '"Gender":"male","address_street":"Bikinistreet", '+
                   '"address_number":"42","address_city":"Bikini Bottom", '+
                   '"address_zip":"12345", "address_country":"Bikiniland", '+
                   '"address_phone":"","address_mail":"spongebob@bikinibottom.water", '+
@@ -52,7 +52,8 @@
           console.log("The new user VID is " + vid);
 
           // !!! test update() function
-          vData = '{"firstname":"Patrick","lastname":"Star"}';
+          vData = '{"firstname":"Patrick","lastname":"Star",'+
+                  '"address_street":"Bikini-Street"}';
           vid = await v.update(vid, vData);
 
           console.log("Successfully updated VID " + vid);
@@ -81,6 +82,9 @@
           vids = await v.search("patr tes");
           console.log("Found using 'patr tes': " + JSON.stringify(vids));
           if (vids.length !== 0) { console.error("Wrong number of results!"); }
+          vids = await v.search("Bikini Street");
+          console.log("Found using 'Bikini Street': " + JSON.stringify(vids));
+          if (vids.length !== 1) { console.error("Wrong number of results!"); }
 
           // !!! test delete() function
           vids = await v.delete(vid);

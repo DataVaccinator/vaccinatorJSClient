@@ -996,7 +996,7 @@ class vaccinator {
      * @returns {string}
      */
     _searchHash(word, withRandom) {
-        if (word === "") { return ""; }
+        if (word === "" || word === undefined) { return ""; }
         if (withRandom === undefined) {
             withRandom = false;
         }
@@ -1035,10 +1035,16 @@ class vaccinator {
             vData = JSON.parse(vData);
         }
         var ret = [];
+        var words = [];
         for (var w of this.searchFields) {
             var value = vData[w];
-            if (value !== "") {
-                ret.push(this._searchHash(value, true));
+            if (value === "") { continue; }
+            // split single words using " ,.+-/\" and linebreak
+            words = value.split(/[\s,\.\+\-\/\\$]+/g);
+            for (var p of words) {
+                if (p !== "" && p !== undefined) {
+                    ret.push(this._searchHash(p, true));
+                }
             }
         }
         this._debug("_getSearchWords: SearchWords are " + JSON.stringify(ret));
