@@ -1015,7 +1015,9 @@ class vaccinator {
                 searchHash += (Math.floor(Math.random() * 16)).toString(16);
             }
         }
-        return searchHash;
+        // Limit search hashes to 254 bytes (127 characters) to fit
+        // dataVaccinator database table "search"."WORD" maximum length.
+        return searchHash.substr(0, 254);
     }
     
     /**
