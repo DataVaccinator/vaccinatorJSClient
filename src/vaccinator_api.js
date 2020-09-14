@@ -11,6 +11,7 @@ class vaccinator {
     appId = "";         // currently used App ID
     debugging = false;  // if debugging is activated
     headers = {};       // optional additional headers to add to fetch requests
+    useCache = true;    // status for cache usage (initially true)
     cache = {};         // cache object (hold in memory)
     searchFields = [];  // currently used search fields
 
@@ -905,6 +906,9 @@ class vaccinator {
      * @returns {boolean}
      */
     async _storeCache(vid, vData) {
+        if (!this.useCache) {
+            return true;
+        }
         var that = this;
         return this._ensureCacheLoaded()
         .then(function() {
@@ -927,6 +931,9 @@ class vaccinator {
      * @returns {string}
      */
     async _retrieveCache(vid) {
+        if (!this.useCache) {
+            return null;
+        }
         var that = this;
         return this._ensureCacheLoaded()
         .then(function() {
@@ -970,6 +977,9 @@ class vaccinator {
      * @returns {boolean}
      */
     async _ensureCacheLoaded() {
+        if (!this.useCache) {
+            return;
+        }
         var that = this;
         if (Object.keys(this.cache).length === 0) {
             // initially, need to get cache from database

@@ -544,6 +544,17 @@ search
   </tbody>
 </table>
 
+Properties
+==========
+
+There are a few class properties that can be useful:
+
+`debugging` = If `true`, the debugging gets activated. With `false` it is deactivated. By this, you can turn on/off debugging at any time.
+
+`useCache` = Set to `false` directly after calling init() to disable any local caching. We suggest to not turn caching on/off during a working session. Instead, use it once after calling init() function.
+
+`appId` = Can get used to read the currently used App-ID. We suggest to not edit/write this value.
+
 Error handling
 ==============
 
