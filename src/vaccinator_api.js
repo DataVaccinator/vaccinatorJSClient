@@ -83,6 +83,7 @@ class vaccinator {
             that.getAppId().then(function(aid) {
                 var jsonString= JSON.stringify( {
                     op: "add", 
+                    version: 2,
                     data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
                     uid: that.userName,
                     words: that._getSearchWords(vData)
@@ -105,10 +106,10 @@ class vaccinator {
                 })
                 .then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
-                        that._storeCache(jsonResult.pid, vData)
+                        that._storeCache(jsonResult.vid, vData)
                         .then(function() {
-                           that._debug("userNew: Returning new VID ["+jsonResult.pid+"]");
-                           resolve(jsonResult.pid); 
+                           that._debug("userNew: Returning new VID ["+jsonResult.vid+"]");
+                           resolve(jsonResult.vid); 
                         });
                     } else {
                         throw(new vaccinatorError("userNew: Result was not OK (Code " +
@@ -142,7 +143,8 @@ class vaccinator {
             that.getAppId().then(function(aid) {
                 var jsonString= JSON.stringify( {
                     op: "update",
-                    pid: vid,
+                    version: 2,
+                    vid: vid,
                     data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
                     uid: that.userName,
                     words: that._getSearchWords(vData)
@@ -202,7 +204,8 @@ class vaccinator {
         return new Promise(function(resolve, reject) {
             var jsonString= JSON.stringify( {
                 op: "delete",
-                pid: vids.join(" "),
+                version: 2,
+                vid: vids.join(" "),
                 uid: that.userName });
             var post = new FormData();
             post.append("json", jsonString);
@@ -292,7 +295,8 @@ class vaccinator {
                 that.getAppId().then(function(aid) {
                     var jsonString= JSON.stringify( {
                         op: "get",
-                        pid: requestVIDs,
+                        version: 2,
+                        vid: requestVIDs,
                         uid: that.userName });
                     var post = new FormData();
                     post.append("json", jsonString);
@@ -396,7 +400,7 @@ class vaccinator {
      */
     async changeAppId(vids, oldAppId, newAppId) {
         if (vids === undefined || vids === "") {
-            throw (new vaccinatorError("changeAppId: pids parameter is mandatory",
+            throw (new vaccinatorError("changeAppId: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
         if (oldAppId === undefined || oldAppId === "" ||
@@ -525,6 +529,7 @@ class vaccinator {
         return new Promise(function(resolve, reject) {
             var jsonString= JSON.stringify( {
                 op: "check",
+                version: 2,
                 uid: that.userName });
             var post = new FormData();
             post.append("json", jsonString);
@@ -597,6 +602,7 @@ class vaccinator {
         return new Promise(function(resolve, reject) {
             var jsonString= JSON.stringify( {
                 op: "search",
+                version: 2,
                 words: term,
                 uid: that.userName });
             var post = new FormData();
@@ -617,7 +623,7 @@ class vaccinator {
             }).then(function(jsonResult) {
                 if (jsonResult.status === "OK") {
                     that._debug("search: Success");
-                    resolve(jsonResult.pids);
+                    resolve(jsonResult.vids);
                 } else {
                     throw(new vaccinatorError("search: Result was not OK (Code " +
                                 jsonResult.code+"-" + jsonResult.desc + ")", 
