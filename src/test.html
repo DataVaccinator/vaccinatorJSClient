@@ -52,7 +52,7 @@
           console.log("The new user VID is " + vid);
 
           // !!! test update() function
-          vData = '{"firstname":"Patrick","lastname":"Star",'+
+          vData = '{"firstname":"Dr. Patrick","lastname":"Star",'+
                   '"address_street":"Bikini-Street"}';
           vid = await v.update(vid, vData);
 
@@ -84,6 +84,9 @@
           if (vids.length !== 0) { console.error("Wrong number of results!"); }
           vids = await v.search("Bikini Street");
           console.log("Found using 'Bikini Street': " + JSON.stringify(vids));
+          if (vids.length !== 1) { console.error("Wrong number of results!"); }
+          vids = await v.search("Dr. Patrick");
+          console.log("Found using 'Dr. Patrick': " + JSON.stringify(vids));
           if (vids.length !== 1) { console.error("Wrong number of results!"); }
 
           // !!! test delete() function

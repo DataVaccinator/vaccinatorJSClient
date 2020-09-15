@@ -585,7 +585,7 @@ class vaccinator {
      */
     async search(searchTerm) {
         var term = "";
-        var words = searchTerm.split(" ");
+        var words = searchTerm.split(/[\s,\.\+\-\/\\$]+/g);
         for (var w of words) {
             term += this._searchHash(w, false) + " ";
         }
