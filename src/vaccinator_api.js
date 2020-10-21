@@ -14,6 +14,8 @@ class vaccinator {
     useCache = true;    // status for cache usage (initially true)
     cache = {};         // cache object (hold in memory)
     searchFields = [];  // currently used search fields
+    sid = 0;            // current service provider id (enableDirectLogin)
+    spwd = "";          // current service provider password (enableDirectLogin)
 
     /**
      * Initialize the vaccinator class
@@ -82,13 +84,18 @@ class vaccinator {
         var that = this;
         return new Promise(function(resolve, reject) {
             that.getAppId().then(function(aid) {
-                var jsonString= JSON.stringify( {
+                var request = {
                     op: "add", 
                     version: 2,
                     data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
                     uid: that.userName,
                     words: that._getSearchWords(vData)
-                } );
+                };
+                if (that.sid > 0 && that.spwd !== "") {
+                    request.sid = that.sid;
+                    request.spwd = that.spwd;
+                }
+                var jsonString= JSON.stringify(request);
                 var post = new FormData();
                 post.append("json", jsonString);
                 var params = { method:"POST",
@@ -142,14 +149,19 @@ class vaccinator {
         var that = this;
         return new Promise(function(resolve, reject) {
             that.getAppId().then(function(aid) {
-                var jsonString= JSON.stringify( {
+                var request = {
                     op: "update",
                     version: 2,
                     vid: vid,
                     data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
                     uid: that.userName,
                     words: that._getSearchWords(vData)
-                });
+                };
+                if (that.sid > 0 && that.spwd !== "") {
+                    request.sid = that.sid;
+                    request.spwd = that.spwd;
+                }
+                var jsonString= JSON.stringify(request);
                 var post = new FormData();
                 post.append("json", jsonString);
                 var params = { method:"POST",
@@ -203,11 +215,17 @@ class vaccinator {
 
         var that = this;
         return new Promise(function(resolve, reject) {
-            var jsonString= JSON.stringify( {
+            var request = {
                 op: "delete",
                 version: 2,
                 vid: vids.join(" "),
-                uid: that.userName });
+                uid: that.userName 
+            };
+            if (that.sid > 0 && that.spwd !== "") {
+                request.sid = that.sid;
+                request.spwd = that.spwd;
+            }
+            var jsonString= JSON.stringify(request);
             var post = new FormData();
             post.append("json", jsonString);
             var params = { method:"POST",
@@ -294,11 +312,17 @@ class vaccinator {
 
             return new Promise(function(resolve, reject) {
                 that.getAppId().then(function(aid) {
-                    var jsonString= JSON.stringify( {
+                    var request = {
                         op: "get",
                         version: 2,
                         vid: requestVIDs,
-                        uid: that.userName });
+                        uid: that.userName 
+                    };
+                    if (that.sid > 0 && that.spwd !== "") {
+                        request.sid = that.sid;
+                        request.spwd = that.spwd;
+                    }
+                    var jsonString= JSON.stringify(request);
                     var post = new FormData();
                     post.append("json", jsonString);
                     var params = { method:"POST",
@@ -601,11 +625,17 @@ class vaccinator {
         
         var that = this;
         return new Promise(function(resolve, reject) {
-            var jsonString= JSON.stringify( {
+            var request = {
                 op: "search",
                 version: 2,
                 words: term,
-                uid: that.userName });
+                uid: that.userName 
+            };
+            if (that.sid > 0 && that.spwd !== "") {
+                request.sid = that.sid;
+                request.spwd = that.spwd;
+            }
+            var jsonString= JSON.stringify(request);
             var post = new FormData();
             post.append("json", jsonString);
             var params = { method:"POST",
@@ -699,6 +729,29 @@ class vaccinator {
         this._debug("Set additional headers for the class [" + 
                     JSON.stringify(headersObj) + "]");
         this.headers = headersObj;
+        return true;
+    }
+
+    /**
+     * Enable direct login. By this, the protocol is enhanced by adding
+     * sid and spwd values (serviceProviderId and serviceProviderPwd).
+     * This is needed to directly access the DataVaccinator without any
+     * intermediate or proxy instance.
+     * Set serviceProviderId = 0 and serviceProviderPwd = "" to turn off.
+     * 
+     * @param {int} serviceProviderId 
+     * @param {string} serviceProviderPwd 
+     */
+    enableDirectLogin(serviceProviderId, serviceProviderPwd) {
+        if (serviceProviderId == 0 || serviceProviderPwd == "") {
+            this.sid = 0;
+            this.spwd = "";
+            this._debug("Disabled direct login");
+            return true;
+        }
+        this.sid = serviceProviderId;
+        this.spwd = serviceProviderPwd;
+        this._debug("Enabled direct login for service provider id [" + serviceProviderId + "]");
         return true;
     }
 

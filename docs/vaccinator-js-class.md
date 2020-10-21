@@ -70,6 +70,7 @@ init
     <tr class="even">
       <td>Info:</td>
       <td><p><code>serviceURl</code> is the URL where the API endpoint at the service provider is located. For example: &quot;https://service-provider.tld/protocol&quot;. All POST calls of the API will be sent to this destination. Please note that &quot;same origin&quot; policy might affect this. In the best case, this is the same domain than your app is running at.</p>
+      <p>This might be the DataVaccinator URL directly, in case you plan to use the <code>enableDirectLogin()</code> function.
         <p><code>user-identifier</code> is some mandatory identifier that the class is using to handle different aspects of saving user related information (like app-id). Also, the class is submitting this information as <code>uid</code> parameter in all protocol calls to the service provider. We suggest to use the name of the user who is using your application (eg email address).</p>
         <p><code>app-id</code> is the end users application password for additional encryption. The vaccinator class expects some app-id known. If not submitted or undefined, the class is trying to get it from previous calls (local database). It throws an error if this fails.</p>
         <p><code>password</code> is used to encrypt the app-id in the local storage database. If not submitted or undefined, the app-id will get stored without any encryption (not recommended). We recommend to submit the password the user entered for log-in to your application. By this, the local database will not leak the app-id in case someone is trying to read the browser database.</p>
@@ -462,6 +463,39 @@ v.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "
   v.setHeaders( { 'Cache-Control': 'max-age=60' } );
 }</code></pre>
       To clear headers, call with empty object like with <code>.setHeaders( {} );</code>.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+enableDirectLogin
+-----------------
+
+<table>
+  <colgroup>
+    <col width="17%" />
+    <col width="82%" />
+  </colgroup>
+  <tbody>
+    <tr class="odd">
+      <td>Description:</td>
+      <td>Enable direct login.</td>
+    </tr>
+    <tr class="even">
+      <td>Parameters:</td>
+      <td>(int) Service Provider ID, (string) Service Provider Password</td>
+    </tr>
+    <tr class="odd">
+      <td>Return value:</td>
+      <td>(boolean) success</td>
+    </tr>
+    <tr class="even">
+      <td>Info:</td>
+      <td>Enable direct login. By this, the protocol is enhanced by adding <code>sid</code> and <code>spwd</code> values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator without any intermediate or proxy instance.
+
+Set serviceProviderId = 0 and serviceProviderPwd = "" to turn off.
+
+Please note that you have to set the direct DataVaccinator URL in <code>init()</code> function call.
       </td>
     </tr>
   </tbody>

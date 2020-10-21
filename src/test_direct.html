@@ -12,7 +12,7 @@
     <!-- end vaccinator include -->
   </head>
   <body>
-    <h1>Vaccinator Service API Class test -> Proxy connection</h1>
+    <h1>Vaccinator Service API Class test -> Direct connection</h1>
     <p>Check console log for results and information.</p>
 
     <script>
@@ -23,9 +23,12 @@
       async function example() {
         try {
           var v = new vaccinator();
-          // Set URL of proxy system (to avoid Same Origin Policy issues)
-          await v.init("http://vaccinator.vsdevel.de.regify.com/service.php", 
-                               "volker", appid, "password", true);
+          // Set direct DataVaccinator URL here (because we use enableDirectLogin() later).
+          await v.init("http://vaccinator.vsdevel.de.regify.com", 
+                        "volker", appid, "password", true);
+
+          // !!! Enable direct login to DataVaccinator (may trigger Same Origin Policy!)
+          v.enableDirectLogin(1, "vaccinator");
 
           // !!! Set some additional header for all network calls
           v.setHeaders( { 'Cache-Control': 'max-age=60' } );
