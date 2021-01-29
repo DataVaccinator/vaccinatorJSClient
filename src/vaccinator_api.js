@@ -211,7 +211,12 @@ class vaccinator {
         }
         if (!Array.isArray(vids)) { vids = vids.split(" "); }
 
-        // TODO: chunk requests with more than 500 VIDs
+        if (vids.length > 500)  {
+            // too many vids per request
+            throw (new vaccinatorError("userDelete: Max 500 vids allowed per request! Please try to chunk your calls.",
+            VACCINATOR_INVALID));
+
+        }
 
         var that = this;
         return new Promise(function(resolve, reject) {
@@ -299,6 +304,12 @@ class vaccinator {
         .then(function() {
 
             // Retrieve missing VIDs from server
+
+            if (uncached.length > 500)  {
+                // too many vids per request
+                throw (new vaccinatorError("userGet: Max 500 vids allowed per request! Please try to chunk your calls.",
+                VACCINATOR_INVALID));
+            }
             
             var requestVIDs = uncached.join(" ");
             if (requestVIDs === "") {
@@ -307,8 +318,6 @@ class vaccinator {
                     resolve(finalResult);
                 });
             }
-
-            // TODO: chunk requests with more than 500 VIDs
 
             return new Promise(function(resolve, reject) {
                 that.getAppId().then(function(aid) {
