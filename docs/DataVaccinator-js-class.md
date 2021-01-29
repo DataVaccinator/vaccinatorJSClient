@@ -159,7 +159,8 @@ get
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td><p>The submitted <code>VID</code> is the identifying Vaccination ID (previously returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.</p>
+      <td><p>The submitted <code>VID</code> is the identifying Vaccination ID (previously returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. If you want to provide more than 500 VIDs, please call this
+      function in chunks (will trigger an exception otherwise).</p>
         <p>The returned payload is an associative object array with the <code>VID</code> as key and some object as value. The value object is having two fields: <code>status</code> (OK or NOTFOUND) and <code>data</code> (the Vaccination Data). If <code>status</code> is NOTFOUND, data is false.</p>
         <p>This is a typical object array response like displayed in Firefox console:</p>
         <pre><code>0d52f1b0a314fba7d45e87ca5bf5e654:
@@ -204,7 +205,8 @@ delete
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td>The <code>VID</code> is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.</td>
+      <td>The <code>VID</code> is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. If you want to provide more than 500 VIDs, please call this
+      function in chunks (will trigger an exception otherwise).</td>
     </tr>
   </tbody>
 </table>
