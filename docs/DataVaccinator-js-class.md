@@ -74,7 +74,7 @@ init
         <p><code>user-identifier</code> is some mandatory identifier that the class is using to handle different aspects of saving user related information (like app-id). Also, the class is submitting this information as <code>uid</code> parameter in all protocol calls to the service provider. We suggest to use the name of the user who is using your application (eg email address).</p>
         <p><code>app-id</code> is the end users application password for additional encryption. The vaccinator class expects some app-id known. If not submitted or undefined, the class is trying to get it from previous calls (local database). It throws an error if this fails.</p>
         <p><code>password</code> is used to encrypt the app-id in the local storage database. If not submitted or undefined, the app-id will get stored without any encryption (not recommended). We recommend to submit the password the user entered for log-in to your application. By this, the local database will not leak the app-id in case someone is trying to read the browser database.</p>
-        <p>Set <code>debugMode</code> to true in order to activate debug output to browser console. Mainly for finding bugs by the developer of vaccinator service class but maybe also helpful for you.</p></td>
+        <p>Set <code>debugMode</code> to true in order to activate debug output to browser console. Mainly for finding bugs by the developer of DataVaccinator class but maybe also helpful for you.</p></td>
     </tr>
   </tbody>
 </table>
@@ -222,7 +222,7 @@ wipe
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td>Wipe the given user entry from the local cache (does not delete data from DataVaccinator service!)</td>
+      <td>Wipe the given user entry from the local cache (does not delete data from DataVaccinator Vault!)</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -234,7 +234,7 @@ wipe
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td>The <code>VID</code> is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. Please note that, if the <code>VID</code> is requested after this was called, the system will request it again from the DataVaccinator service and will update the cache. A possible use case is, if you know that the local cache is outdated for this <code>VID</code>, you can force the system to refresh its cache by wiping the user with this function.</td>
+      <td>The <code>VID</code> is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. Please note that, if the <code>VID</code> is requested after this was called, the system will request it again from the DataVaccinator Vault and will update the cache. A possible use case is, if you know that the local cache is outdated for this <code>VID</code>, you can force the system to refresh its cache by wiping the user with this function.</td>
     </tr>
   </tbody>
 </table>
@@ -274,8 +274,8 @@ wipeCache
         <p>2) If the application was used in Internet café or other security 
           concerns are against permanent local caching (please note that the 
           caching massively increases speed of the whole system). After the 
-          cache was wiped, all data has to become requested from the vaccinator 
-          service again if requested. Thus, please call this function (if 
+          cache was wiped, all data has to become requested from the DataVaccinator 
+          Vault again if requested. Thus, please call this function (if 
           needed) with no token regularly after logout (in this situation).</p>
       </td>
     </tr>
@@ -328,11 +328,11 @@ changeAppId
           wait&quot; dialogue to tell the user that something is going on in the
           background.</p>
         <p><strong>NOTE:</strong> It is important that this call contains ALL VIDs 
-          assigned to the given app-id. If not, some data in DataVaccinator service may
+          assigned to the given app-id. If not, some data in DataVaccinator Vault may
           stay encrypted with the old app-id. In the worst case, this would cause 
           serious data loss.</p>
         <p><strong>NOTE:</strong>In case this function was interrupted, there is a 
-          chance that some entries in DataVaccinator service may be encrypted with the 
+          chance that some entries in DataVaccinator Vault may be encrypted with the 
           new app-id and other still with the old one. The API is making sure that 
           only Vaccination Data encrypted with the old app-id get re-encrypted (by using the
           <code>cs</code> value from the payload). By this, it is possible to call this function
@@ -493,7 +493,7 @@ enableDirectLogin
     </tr>
     <tr class="even">
       <td>Info:</td>
-      <td>Enable direct login. By this, the protocol is enhanced by adding <code>sid</code> and <code>spwd</code> values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator without any intermediate or proxy instance.
+      <td>Enable direct login. By this, the protocol is enhanced by adding <code>sid</code> and <code>spwd</code> values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator Vault without any intermediate or proxy instance.
 
 Set serviceProviderId = 0 and serviceProviderPwd = "" to turn off.
 
@@ -550,7 +550,7 @@ search
   <tbody>
     <tr class="odd">
       <td>Description:</td>
-      <td>Search through the DataVaccinator service for entries.</td>
+      <td>Search through the DataVaccinator Vault for entries.</td>
     </tr>
     <tr class="even">
       <td>Parameters:</td>
@@ -573,7 +573,7 @@ search
         was called before using "add" or "update" calls. You can only search
         for entries that were pushed or updated with search function
         enabled.</p>
-        <p><strong>Note:</strong> This only works if the DataVaccinator service
+        <p><strong>Note:</strong> This only works if the DataVaccinator Vault
           activated the "search" plugin. If not, you will get EC_MISSING_PARAMETERS.</p>
       </td>
     </tr>
@@ -600,7 +600,7 @@ Error class and adds two additional values:
 
 **reason:** It is one of the following reasons of the error:
 
-`VACCINATOR_SERVICE` = The vaccinator service is the reason for the
+`VACCINATOR_SERVICE` = The DataVaccinator Vault is the reason for the
 problem. Check vaccinatorCode value for more details.
 
 `VACCINATOR_INVALID` = You very likely submitted some invalid or missing
@@ -609,7 +609,7 @@ parameter. Not vaccinator related but related to your input.
 `VACCINATOR_UNKNOWN` = Error with no further specification.
 
 **vaccinatorCode:** In case the reason was VACCINATOR\_SERVICE, this code
-contains the return code from vaccinator service.
+contains the return code from DataVaccinator Vault.
 
 In general, if you get an error of reason VACCINATOR\_SERVICE, you have
 to validate the vaccinatorCode and maybe inform the user about some
