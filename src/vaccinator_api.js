@@ -78,7 +78,7 @@ class vaccinator {
      */
     async new(vData) {
         if (vData === undefined || vData === "") {
-            throw (new vaccinatorError("userNew: vData parameter is mandatory",
+            throw (new vaccinatorError("new: vData parameter is mandatory",
                     VACCINATOR_INVALID));
         }
         var that = this;
@@ -102,12 +102,12 @@ class vaccinator {
                                body: post,
                                headers: that.headers
                              };
-                that._debug("userNew: Protocol call: [" + jsonString + 
+                that._debug("new: Protocol call: [" + jsonString + 
                             "] to url ["+that.url+"]");
                 fetch(that.url, params)
                 .then(function(response) {
                     if (response.status !== 200) {
-                        throw(new vaccinatorError("userNew: URL request failed with status " + 
+                        throw(new vaccinatorError("new: URL request failed with status " + 
                                     response.status, VACCINATOR_SERVICE));
                     }
                     return response.json();
@@ -116,16 +116,16 @@ class vaccinator {
                     if (jsonResult.status === "OK") {
                         that._storeCache(jsonResult.vid, vData)
                         .then(function() {
-                           that._debug("userNew: Returning new VID ["+jsonResult.vid+"]");
+                           that._debug("new: Returning new VID ["+jsonResult.vid+"]");
                            resolve(jsonResult.vid); 
                         });
                     } else {
-                        throw(new vaccinatorError("userNew: Result was not OK (Code " +
+                        throw(new vaccinatorError("new: Result was not OK (Code " +
                                     jsonResult.code+"-" + jsonResult.desc + ")", 
                                     VACCINATOR_SERVICE, jsonResult.code));
                     }
                 }).catch(function(e) {
-                    throw(new vaccinatorError("userNew: URL request failed: [" + e + "]", 
+                    throw(new vaccinatorError("new: URL request failed: [" + e + "]", 
                                     VACCINATOR_SERVICE));
                 });
             });
@@ -143,7 +143,7 @@ class vaccinator {
     async update(vid, vData) {
         if (vid === undefined || vid === "" || 
             vData === undefined || vData === "") {
-            throw (new vaccinatorError("userUpdate: vid and vData parameter are mandatory",
+            throw (new vaccinatorError("update: vid and vData parameter are mandatory",
                     VACCINATOR_INVALID));
         }
         var that = this;
@@ -168,28 +168,28 @@ class vaccinator {
                                body: post,
                                headers: that.headers
                              };
-                that._debug("userUpdate: Protocol call: [" + jsonString + 
+                that._debug("update: Protocol call: [" + jsonString + 
                             "] to url ["+that.url+"]");
                 fetch(that.url, params)
                 .then(function(response) {
                     if (response.status !== 200) {
-                        throw(new vaccinatorError("userUpdate: URL request failed with status " + 
+                        throw(new vaccinatorError("update: URL request failed with status " + 
                                     response.status, VACCINATOR_SERVICE));
                     }
                     return response.json();
                 }).then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
                         that._storeCache(vid, vData).then(function() {
-                            that._debug("userUpdate: Returning updated VID ["+vid+"]");
+                            that._debug("update: Returning updated VID ["+vid+"]");
                             resolve(vid);
                         });
                     } else {
-                        throw(new vaccinatorError("userUpdate: Result was not OK (Code " +
+                        throw(new vaccinatorError("update: Result was not OK (Code " +
                                     jsonResult.code+"-" + jsonResult.desc + ")", 
                                     VACCINATOR_SERVICE, jsonResult.code));
                     }
                 }).catch(function(e) {
-                    throw(new vaccinatorError("userUpdate: URL request failed: [" + e + "]", 
+                    throw(new vaccinatorError("update: URL request failed: [" + e + "]", 
                                     VACCINATOR_SERVICE));
                 });
             });
@@ -206,14 +206,14 @@ class vaccinator {
      */
     async delete(vids) {
         if (vids === undefined || vids === "") {
-            throw (new vaccinatorError("userDelete: vids parameter is mandatory",
+            throw (new vaccinatorError("delete: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
         if (!Array.isArray(vids)) { vids = vids.split(" "); }
 
         if (vids.length > 500)  {
             // too many vids per request
-            throw (new vaccinatorError("userDelete: Max 500 vids allowed per request! Please try to chunk your calls.",
+            throw (new vaccinatorError("delete: Max 500 vids allowed per request! Please try to chunk your calls.",
             VACCINATOR_INVALID));
 
         }
@@ -237,28 +237,28 @@ class vaccinator {
                            body: post,
                            headers: that.headers
                          };
-            that._debug("userDelete: Protocol call: [" + jsonString + 
+            that._debug("delete: Protocol call: [" + jsonString + 
                         "] to url ["+that.url+"]");
             fetch(that.url, params)
             .then(function(response) {
                 if (response.status !== 200) {
-                    throw(new vaccinatorError("userDelete: URL request failed with status " + 
+                    throw(new vaccinatorError("delete: URL request failed with status " + 
                                 response.status, VACCINATOR_SERVICE));
                 }
                 return response.json();
             }).then(function(jsonResult) {
                 if (jsonResult.status === "OK") {
-                    that._debug("userDelete: Success");
+                    that._debug("delete: Success");
                     return that._removeCache(vids).then(function() {
                         resolve(vids);
                     });
                 } else {
-                    throw(new vaccinatorError("userDelete: Result was not OK (Code " +
+                    throw(new vaccinatorError("delete: Result was not OK (Code " +
                                 jsonResult.code+"-" + jsonResult.desc + ")", 
                                 VACCINATOR_SERVICE, jsonResult.code));
                 }
             }).catch(function(e) {
-                throw(new vaccinatorError("userDelete: URL request failed: [" + e + "]", 
+                throw(new vaccinatorError("delete: URL request failed: [" + e + "]", 
                                 VACCINATOR_SERVICE));
             });
         });
@@ -273,7 +273,7 @@ class vaccinator {
      */
     async get(vids) {
         if (vids === undefined || vids === "") {
-            throw (new vaccinatorError("userGet: vids parameter is mandatory",
+            throw (new vaccinatorError("get: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
         if (!Array.isArray(vids)) { vids = vids.split(" "); }
@@ -290,10 +290,10 @@ class vaccinator {
             .then(function(vData) {
                 if (vData === null || vData === undefined) {
                     uncached.push(vid);
-                    that._debug("userGet: Add vid ["+vid+"] for getting from server");
+                    that._debug("get: Add vid ["+vid+"] for getting from server");
                     return;
                 }
-                that._debug("userGet: Retrieve cached vData for vid ["+vid+"]");
+                that._debug("get: Retrieve cached vData for vid ["+vid+"]");
                 var r = {"status": "OK", "data": vData};
                 finalResult[vid] = r;
                 return;
@@ -307,7 +307,7 @@ class vaccinator {
 
             if (uncached.length > 500)  {
                 // too many vids per request
-                throw (new vaccinatorError("userGet: Max 500 vids allowed per request! Please try to chunk your calls.",
+                throw (new vaccinatorError("get: Max 500 vids allowed per request! Please try to chunk your calls.",
                 VACCINATOR_INVALID));
             }
             
@@ -338,18 +338,18 @@ class vaccinator {
                                    body: post,
                                    headers: that.headers
                                  };
-                    that._debug("userGet: Protocol call: [" + jsonString + 
+                    that._debug("get: Protocol call: [" + jsonString + 
                                 "] to url ["+that.url+"]");
                     fetch(that.url, params)
                     .then(function(response) {
                         if (response.status !== 200) {
-                            throw(new vaccinatorError("userGet: URL request failed with status " + 
+                            throw(new vaccinatorError("get: URL request failed with status " + 
                                         response.status, VACCINATOR_SERVICE));
                         }
                         return response.json();
                     }).then(function(jsonResult) {
                         if (jsonResult.status === "OK") {
-                            that._debug("userGet: Successfully received vData. Processing...");
+                            that._debug("get: Successfully received vData. Processing...");
                             // decrypt vData
                             var data = jsonResult.data;
                             var checksum = that.appId.substr(-2, 2); // current appId checksum
@@ -378,16 +378,16 @@ class vaccinator {
                             return Promise.all(storePromises)
                             .then(function() {
                                 finalResult = Object.assign({}, data, finalResult);
-                                that._debug("userGet: Finished");
+                                that._debug("get: Finished");
                                 resolve(finalResult);
                             });
                         } else {
-                            throw(new vaccinatorError("userGet: Result was not OK (Code " +
+                            throw(new vaccinatorError("get: Result was not OK (Code " +
                                         jsonResult.code+"-" + jsonResult.desc + ")", 
                                         VACCINATOR_SERVICE, jsonResult.code));
                         }
                     }).catch(function(e) {
-                        throw(new vaccinatorError("userGet: URL request failed: [" + e + "]", 
+                        throw(new vaccinatorError("get: URL request failed: [" + e + "]", 
                                         VACCINATOR_SERVICE));
                     });
                 });
@@ -404,7 +404,7 @@ class vaccinator {
      */
     async wipe(vids) {
         if (vids === undefined || vids === "") {
-            throw (new vaccinatorError("userWipe: vids parameter is mandatory",
+            throw (new vaccinatorError("wipe: vids parameter is mandatory",
                     VACCINATOR_INVALID));
         }
         if (!Array.isArray(vids)) { vids = vids.split(" "); }
