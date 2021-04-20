@@ -50,7 +50,7 @@
 
           // !!! test new() function
           var vid = await v.new(vData);  
-          console.log("The new user VID is " + vid);
+          console.log("The new VID is " + vid);
 
           // !!! test update() function
           vData = '{"firstname":"Dr. Patrick","lastname":"Star",'+
@@ -61,7 +61,7 @@
 
           // !!! test wipe() function
           var vids = await v.wipe(vid + " " + "dc2520e55dbc02d44a6ebc160cbffa62");
-          console.log("Wiped user data from cache (force reload)");
+          console.log("Wiped data from cache (force reload)");
 
           // !!! test get() function
           // use some unknown VID to simulate "not found" and trigger vaccinator call
@@ -92,7 +92,7 @@
 
           // !!! test delete() function
           vids = await v.delete(vid);
-          console.log("Successfully removed the entry for user(s) " + JSON.stringify(vids));
+          console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
 
           // !!! test wipeCache() function
           // A weekday token will force the cache to become
@@ -104,6 +104,26 @@
           } else {
             console.log("Cache NOT wiped");
           }
+
+          // !!! test publish() function
+          vData = '{"firstname":"Sandy","lastname":"Cheeks", '+
+                  '"Gender":"female","address_street":"Bikinistreet", '+
+                  '"address_number":"8","address_city":"Bikini Bottom", '+
+                  '"address_zip":"12345", "address_country":"Bikiniland"'+
+                  '}';
+          var vid = await v.publish(vData, "myPassword", 5);
+          console.log("The new VID is " + vid);
+
+          // !!! test getpublished() function
+          // add some unknown VID to simulate "not found" and trigger vaccinator call
+          var toGet = [ vid, "ff52f1b0a314fba7d45e87ca5bf5e654" ];
+          var vDataArray = await v.getPublished(toGet, "myPassword");
+          console.log("Successfully received vData object array:");
+          console.log(vDataArray);
+
+          // !!! test delete() function
+          vids = await v.delete(vid);
+          console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
           
           // Done
           console.log("Test finished");

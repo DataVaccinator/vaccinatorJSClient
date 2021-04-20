@@ -24,7 +24,7 @@
         try {
           var v = new vaccinator();
           // Set direct DataVaccinator URL here (because we use enableDirectLogin() later).
-          await v.init("http://vaccinator.vsdevel.de.regify.com", 
+          await v.init("http://127.0.0.1:8080", 
                         "volker", appid, "password", true);
 
           // !!! Enable direct login to DataVaccinator (may trigger Same Origin Policy!)
@@ -107,6 +107,26 @@
           } else {
             console.log("Cache NOT wiped");
           }
+
+          // !!! test publish() function
+          vData = '{"firstname":"Sandy","lastname":"Cheeks", '+
+                  '"Gender":"female","address_street":"Bikinistreet", '+
+                  '"address_number":"8","address_city":"Bikini Bottom", '+
+                  '"address_zip":"12345", "address_country":"Bikiniland"'+
+                  '}';
+          var vid = await v.publish(vData, "myPassword", 5);
+          console.log("The new VID is " + vid);
+
+          // !!! test getpublished() function
+          // add some unknown VID to simulate "not found" and trigger vaccinator call
+          var toGet = [ vid, "ff52f1b0a314fba7d45e87ca5bf5e654" ];
+          var vDataArray = await v.getPublished(toGet, "myPassword");
+          console.log("Successfully received vData object array:");
+          console.log(vDataArray);
+
+          // !!! test delete() function
+          vids = await v.delete(vid);
+          console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
           
           // Done
           console.log("Test finished");

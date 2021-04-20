@@ -70,30 +70,44 @@ class vaccinator {
     }
 
     /**
-     * Pushes new vData to vaccinator service and returns
+     * Pushes or adds new vData to vaccinator service and returns
      * generated app-id. Updates local cache automatically.
      * 
      * @param {string} vData 
      * @returns {promise} vid
      */
-    async new(vData) {
+    async _new(vData, publishing, password, duration) {
         if (vData === undefined || vData === "") {
             throw (new vaccinatorError("new: vData parameter is mandatory",
                     VACCINATOR_INVALID));
         }
+        
         var that = this;
         return new Promise(function(resolve, reject) {
             that.getAppId().then(function(aid) {
+                var operation, payload;
+                if (publishing) {
+                    var sha256 = that._hash(password);
+                    payload = that._encrypt(vData, that._hex2buf(sha256));
+                    operation = "publish";
+                } else {
+                    payload = that._encrypt(vData, that._getKey(), aid.substr(-2));
+                    operation = "add";
+                }
+                
                 var request = {
-                    op: "add", 
+                    op: operation, 
                     version: 2,
-                    data:  that._encrypt(vData, that._getKey(), aid.substr(-2)),
+                    data: payload,
                     uid: that.userName,
                     words: that._getSearchWords(vData)
                 };
                 if (that.sid > 0 && that.spwd !== "") {
                     request.sid = that.sid;
                     request.spwd = that.spwd;
+                }
+                if (publishing) {
+                    request.duration = duration;
                 }
                 var jsonString= JSON.stringify(request);
                 var post = new FormData();
@@ -114,11 +128,16 @@ class vaccinator {
                 })
                 .then(function(jsonResult) {
                     if (jsonResult.status === "OK") {
-                        that._storeCache(jsonResult.vid, vData)
-                        .then(function() {
-                           that._debug("new: Returning new VID ["+jsonResult.vid+"]");
-                           resolve(jsonResult.vid); 
-                        });
+                        if (publishing) {
+                           that._debug("new: Returning new published VID ["+jsonResult.vid+"]");
+                           resolve(jsonResult.vid);
+                        } else {
+                            that._storeCache(jsonResult.vid, vData)
+                            .then(function() {
+                            that._debug("new: Returning new VID ["+jsonResult.vid+"]");
+                            resolve(jsonResult.vid); 
+                            });
+                        }
                     } else {
                         throw(new vaccinatorError("new: Result was not OK (Code " +
                                     jsonResult.code+"-" + jsonResult.desc + ")", 
@@ -130,6 +149,38 @@ class vaccinator {
                 });
             });
         });
+    }
+
+    /**
+     * Pushes new vData to vaccinator service and returns
+     * generated app-id. Updates local cache automatically.
+     * 
+     * @param {string} vData 
+     * @returns {promise} vid
+     */
+    async new(vData) {
+        // TODO: Enhance memory footprint by submitting vData to _new() by reference
+        return this._new(vData, false, "", 0);
+    }
+
+    /**
+     * Publishes new vData to vaccinator service and returns
+     * generated app-id. Updates local cache automatically.
+     * 
+     * @param {string} vData 
+     * @returns {promise} vid
+     */
+    async publish(vData, password, duration) {
+        if (password === undefined || password === "") {
+            throw (new vaccinatorError("publish: password is not set",
+                    VACCINATOR_INVALID));
+        }
+        if (duration === undefined || duration < 1 || duration > 365) {
+            throw (new vaccinatorError("publish: duration out of range",
+                    VACCINATOR_INVALID));
+        }
+        // TODO: Enhance memory footprint by submitting vData to _new() by reference
+        return this._new(vData, true, password, duration);
     }
 
     /**
@@ -249,6 +300,7 @@ class vaccinator {
             }).then(function(jsonResult) {
                 if (jsonResult.status === "OK") {
                     that._debug("delete: Success");
+                    // TODO: Do not remove from cache if it was published.
                     return that._removeCache(vids).then(function() {
                         resolve(vids);
                     });
@@ -390,6 +442,101 @@ class vaccinator {
                         throw(new vaccinatorError("get: URL request failed: [" + e + "]", 
                                         VACCINATOR_SERVICE));
                     });
+                });
+            });
+        });
+    }
+
+    /**
+     * Get published vData from vaccinator service.
+     * vids may be multiple vids separated by space " " or as array.
+     * This does not use any caching!
+     * 
+     * @param {(string|string[])} vids
+     * @returns {string}
+     */
+    async getPublished(vids, password) {
+        if (vids === undefined || vids === "") {
+            throw (new vaccinatorError("getPublished: vids parameter is mandatory",
+                    VACCINATOR_INVALID));
+        }
+        if (password === undefined || password === "") {
+            throw (new vaccinatorError("getPublished: password is not set",
+                    VACCINATOR_INVALID));
+        }
+        if (!Array.isArray(vids)) { vids = vids.split(" "); }
+
+        if (vids.length > 500)  {
+            // too many vids per request
+            throw (new vaccinatorError("getPublished: Max 500 vids allowed per request! Please try to chunk your calls.",
+            VACCINATOR_INVALID));
+        }
+
+        // prepare POST call
+        vids = vids.join(" ");
+
+        var that = this;
+        return new Promise(function(resolve, reject) {
+            that.getAppId().then(function(aid) {
+                var request = {
+                    op: "getpublished",
+                    version: 2,
+                    vid: vids,
+                    uid: that.userName 
+                };
+                if (that.sid > 0 && that.spwd !== "") {
+                    request.sid = that.sid;
+                    request.spwd = that.spwd;
+                }
+                var jsonString= JSON.stringify(request);
+                var post = new FormData();
+                post.append("json", jsonString);
+                var params = { method:"POST",
+                               body: post,
+                               headers: that.headers
+                             };
+                that._debug("getPublished: Protocol call: [" + jsonString + 
+                            "] to url ["+that.url+"]");
+                fetch(that.url, params)
+                .then(function(response) {
+                    if (response.status !== 200) {
+                        throw(new vaccinatorError("getPublished: URL request failed with status " + 
+                                    response.status, VACCINATOR_SERVICE));
+                    }
+                    return response.json();
+                }).then(function(jsonResult) {
+                    if (jsonResult.status === "OK") {
+                        that._debug("getPublished: Successfully received vData. Processing...");
+                        // decrypt vData
+                        var data = jsonResult.data;
+                        var checksum = that.appId.substr(-2, 2); // current appId checksum
+                        var pwd = that._hex2buf(that._hash(password)); // prepare password
+                        for (var vid of Object.keys(data)) {
+                            if (data[vid]["status"] === "OK") {
+                                try {
+                                    data[vid]["data"] = that._decrypt(data[vid]["data"], pwd);
+                                } catch (e) {
+                                    // very likely the checksum did not match!
+                                    console.error("Unable to decrypt vData ["+vid+
+                                            "] because used password seems not the correct one or "+
+                                            "some crypto error occured! "+
+                                            "Origin error: [" + e.toString() + "]");
+                                    // cleanup failing dataset
+                                    data[vid]["status"] = "ERROR";
+                                    data[vid]["data"] = false;
+                                }
+                            }
+                        };
+                        resolve(data);
+
+                    } else {
+                        throw(new vaccinatorError("getPublished: Result was not OK (Code " +
+                                    jsonResult.code+"-" + jsonResult.desc + ")", 
+                                    VACCINATOR_SERVICE, jsonResult.code));
+                    }
+                }).catch(function(e) {
+                    throw(new vaccinatorError("getPublished: URL request failed: [" + e + "]", 
+                                    VACCINATOR_SERVICE));
                 });
             });
         });
@@ -561,10 +708,17 @@ class vaccinator {
     async getServerInfo() {
         var that = this;
         return new Promise(function(resolve, reject) {
-            var jsonString= JSON.stringify( {
+            var request = {
                 op: "check",
                 version: 2,
-                uid: that.userName });
+                uid: that.userName 
+            };
+            if (that.sid > 0 && that.spwd !== "") {
+                request.sid = that.sid;
+                request.spwd = that.spwd;
+            }
+            var jsonString= JSON.stringify(request);
+
             var post = new FormData();
             post.append("json", jsonString);
             var params = { method:"POST",
