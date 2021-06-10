@@ -18,8 +18,6 @@ class vaccinator {
     spwd = "";          // current service provider password (enableDirectLogin)
 
     /**
-     * Initialize the vaccinator class
-     * 
      * @param {string} url 
      * @param {string} userName
      * @param {string} appId (optional)
@@ -70,9 +68,6 @@ class vaccinator {
     }
 
     /**
-     * Pushes or adds new vData to vaccinator service and returns
-     * generated app-id. Updates local cache automatically.
-     * 
      * @param {string} vData 
      * @returns {promise} vid
      */
@@ -152,9 +147,6 @@ class vaccinator {
     }
 
     /**
-     * Pushes new vData to vaccinator service and returns
-     * generated app-id. Updates local cache automatically.
-     * 
      * @param {string} vData 
      * @returns {promise} vid
      */
@@ -164,9 +156,6 @@ class vaccinator {
     }
 
     /**
-     * Publishes new vData to vaccinator service and returns
-     * generated app-id. Updates local cache automatically.
-     * 
      * @param {string} vData 
      * @returns {promise} vid
      */
@@ -184,9 +173,6 @@ class vaccinator {
     }
 
     /**
-     * Updates new vData to vaccinator service and returns
-     * vid. Updates local cache automatically.
-     * 
      * @param {string} vid
      * @param {string} vData 
      * @returns {promise} vid
@@ -248,10 +234,6 @@ class vaccinator {
     }
 
     /**
-     * Deletes from vaccinator service and also from local cache. 
-     * TAKE CARE: The data is finally removed then!
-     * vids may be multiple vids separated by space " " or as array.
-     * 
      * @param {(string|string[])} vids
      * @returns {promise} vids
      */
@@ -317,9 +299,6 @@ class vaccinator {
     }
 
     /**
-     * Get vData from vaccinator service.
-     * vids may be multiple vids separated by space " " or as array.
-     * 
      * @param {(string|string[])} vids
      * @returns {string}
      */
@@ -448,10 +427,6 @@ class vaccinator {
     }
 
     /**
-     * Get published vData from vaccinator service.
-     * vids may be multiple vids separated by space " " or as array.
-     * This does not use any caching!
-     * 
      * @param {(string|string[])} vids
      * @returns {string}
      */
@@ -543,9 +518,6 @@ class vaccinator {
     }
 
     /**
-     * Wipes the cache entry for the given VID(s).
-     * vids may be multiple vids separated by space " " or as array.
-     * 
      * @param {(string|string[])} vids
      * @returns {promise} vids
      */
@@ -565,15 +537,6 @@ class vaccinator {
     }
     
     /**
-     * This is trying to re-encode all given vData after the app-id has changed.
-     * The function also updates local cache. If you do not want all the data stay
-     * here, either use userWipe() to remove specific items or wipeCache() to
-     * cleanup all.
-     * After the function ran, the newAppId is the current class app-id and overlays
-     * the app-id given during initialization.
-     * 
-     * vids may be multiple vids separated by space " " or as array.
-     * 
      * @param {(string|string[])} vids
      * @param {string} oldAppId
      * @param {string} newAppId
@@ -640,10 +603,6 @@ class vaccinator {
     }  
 
     /**
-     * Wiping the complete cache. If token is given and known,
-     * it will not wipe. If given and unknown it will wipe
-     * and remember that token.
-     * 
      * @param {string} token (optional)
      * @returns {promise} boolean
      */
@@ -672,9 +631,6 @@ class vaccinator {
     }
 
     /**
-     * Internal: wiping the cache (no token check!)
-     * Will save token if given.
-     * 
      * @param {string} token (optional)
      * @returns {promise}
      */
@@ -701,8 +657,6 @@ class vaccinator {
     }
     
     /**
-     * Requests server info from DataVaccinator server.
-     * 
      * @returns {Promise} array
      */
     async getServerInfo() {
@@ -751,8 +705,6 @@ class vaccinator {
     }
     
     /**
-     * Enable search functionality using given vData fields.
-     * 
      * @param {string[]} fields
      * @returns {boolean}
      */
@@ -765,8 +717,6 @@ class vaccinator {
     }
     
     /**
-     * Search DataVaccinator service for entries matching given search words
-     * 
      * @param {string} searchTerm 
      * @returns {Promise} vids
      */
@@ -832,8 +782,6 @@ class vaccinator {
     }
     
     /**
-     * Returns the current active AppId
-     * 
      * @returns {string}
      */
     async getAppId() {
@@ -864,9 +812,6 @@ class vaccinator {
     }
 
     /**
-     * Validates the given AppId. Returns true if it is valid.
-     * Please refer to APP-ID description for details.
-     * 
      * @param {string} appId 
      * @returns {boolean}
      */
@@ -881,10 +826,6 @@ class vaccinator {
     }
     
     /**
-     * Set some additional header values.
-     * Example:
-     * .setHeaders( { 'Cache-Control': 'max-age=60' } );
-     * 
      * @param {object} headersObj
      * @returns {Boolean}
      */
@@ -896,12 +837,6 @@ class vaccinator {
     }
 
     /**
-     * Enable direct login. By this, the protocol is enhanced by adding
-     * sid and spwd values (serviceProviderId and serviceProviderPwd).
-     * This is needed to directly access the DataVaccinator without any
-     * intermediate or proxy instance.
-     * Set serviceProviderId = 0 and serviceProviderPwd = "" to turn off.
-     * 
      * @param {int} serviceProviderId 
      * @param {string} serviceProviderPwd 
      */
