@@ -34,7 +34,7 @@ try {
   v.init("https://serviceprovider.com/service.php", "username", "appid", "password", false)
   .then(function() {
     console.log("Successfully initialized vaccinator class");
-  }
+  })
 } catch (e) {
   // catch any vaccinator class errors from here. e is vaccinatorError class.
   console.error(e);
@@ -72,13 +72,13 @@ Set *debugMode* to true in order to activate debug output to browser console. Ma
 [cols="1,4"]
 |=======
 |Description:
-|Create a new user entry.
+|Create a new PID entry.
 |Parameters:
 |(string) vaccinationData
 |Return value:
 |(promise) (string) VID
 |Info:
-|The *vaccinationData* is some JSON encoded dataset. It may contain personal information of a person. This is then returned later by the <<_get, get()>> function.
+|The *vaccinationData* is PID in some JSON encoded dataset. It may contain personal information of a person (PID). This is then returned later by the <<_get, get()>> function.
 |=======
 
 === update
@@ -86,15 +86,15 @@ Set *debugMode* to true in order to activate debug output to browser console. Ma
 [cols="1,4"]
 |=======
 |Description:
-|Update vaccinationData of an existing user entry.
+|Update vaccinationData of an existing PID entry.
 |Parameters:
 |(string) VID, (string) vaccinationData
 |Return value:
 |(promise) (string) VID
 |Info:
-|The *VID* is the identifying Vaccination ID (for example, previously returned by new).
+|The *VID* is the identifying Vaccination ID (for example, previously returned by <<_new, new()>>.
 
-The *vaccinationData* is some JSON encoded dataset. It may contain personal information of a person.
+The *vaccinationData* is PID in some JSON encoded dataset. It may contain personal information of a person (PID).
 |=======
 
 === get
@@ -102,7 +102,7 @@ The *vaccinationData* is some JSON encoded dataset. It may contain personal info
 [cols="1,4"]
 |=======
 |Description:
-|Retrieve the vaccinationData of a given user entry.
+|Retrieve the vaccinationData of one or more given VID.
 |Parameters:
 |(array) multiple VIDs or (string) VID
 |Return value:
@@ -130,9 +130,11 @@ fb9a6fd4c504878b2a76d9e78af795bb:
            data: "{\"fn\":\"Patrick\",\"ln\":\"Star\"}"
          }
 ----
-Access the results like this:
+Access the results like in this example:
+[source,javascript]
 ----
-var status = result['0d52f1b0a314fba7d45e87ca5bf5e654']['status];
+var vid = '0d52f1b0a314fba7d45e87ca5bf5e654';
+var status = result[vid]['status'];
 ----
 |=======
 
@@ -141,7 +143,7 @@ var status = result['0d52f1b0a314fba7d45e87ca5bf5e654']['status];
 [cols="1,4"]
 |=======
 |Description:
-|Delete the given user entry.
+|Delete the given entry.
 |Parameters:
 |(array) multiple VIDs or (string) VID
 |Return value:
@@ -157,7 +159,9 @@ If you want to provide more than 500 VIDs, please call this function in chunks (
 [cols="1,4"]
 |=======
 |Description:
-|Wipe the given user entry from the local cache (does not delete data from DataVaccinator Vault!)
+|Wipe the given PID entry from the local cache. 
+
+This does not delete data from DataVaccinator Vault!
 |Parameters:
 |(array) multiple VIDs or (string) VID
 |Return value:
@@ -165,7 +169,7 @@ If you want to provide more than 500 VIDs, please call this function in chunks (
 |Info:
 |The *VID* is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. 
 
-Please note that, if the *VID* is requested after this was called, the system will request it again from the DataVaccinator Vault and will update the cache. A possible use case is, if you know that the local cache is outdated for this *VID*, you can force the system to refresh its cache by wiping the user with this function.
+Please note that, if the *VID* is requested after this was called, the system will request it again from the DataVaccinator Vault and will update the cache. A possible use case is, if you know that the local cache is outdated for this *VID*, you can force the system to refresh its cache by wiping the PID with this function.
 |=======
 
 === wipeCache
@@ -179,9 +183,9 @@ Please note that, if the *VID* is requested after this was called, the system wi
 |Return value:
 |(promise) (boolean) true = cache was wiped, false = cache stayed untouched
 |Info:
-a|This wipes all local cached information. In case the given token (eg time stamp) is different to the one used before, or even unset or empty, it will wipe the cache. There are two use-cases:
+a|This wipes all local cached information in case the given *token* (eg time stamp) is different to the one used before on this system, or it is unset or empty. If none of this applies, it does not wipe the local cache. There are two use-cases:
 
-. If the service provider is sending a time stamp (refer to *update* vaccinator protocol function). In this case, call <<_wipecache, wipeCache()>> with the given time stamp as token. If the token differs from last time, this function will wipe the whole cache. New requests will restore the cache step by step. By this, your local cache is always up to date.
+. If the service provider is sending a time stamp indicating last changes (refer to *update* vaccinator protocol function). In this case you may call <<_wipecache, wipeCache()>> with the given time stamp as token. If the token differs from last time, this function will wipe the whole cache. New requests will restore the cache step by step. By this, your local cache is always up to date.
 . If the application was used in Internet café or other security concerns are against permanent local caching (please note that the caching massively increases speed of the whole system). After the cache was wiped, all data has to become requested from the DataVaccinator Vault again if requested. Thus, please call this function (if needed) with no token regularly after logout (in this situation).
 |=======
 
@@ -190,7 +194,7 @@ a|This wipes all local cached information. In case the given token (eg time stam
 [cols="1,4"]
 |=======
 |Description:
-|This is trying to re-encode all Vaccination Data after the app-id has changed.
+|This is trying to re-encode all stored Vaccination Data (PID) after the app-id has changed.
 |Parameters:
 |(array) VIDs, (string) old app-id, (string) new app-id
 |Return value:
@@ -278,14 +282,14 @@ NOTE: In case this function was interrupted, there is a chance that some entries
 |Return value:
 |(boolean) success
 |Info:
-a|This is added as headers value in fetch calls. Use directly after calling <<_init, init()>>:
+a|This is added as http header value in all fetching calls. Use directly after calling <<_init, init()>>:
 [source,javascript]
 ----
 var v = new vaccinator();
 v.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appid, "password", true)
 .then(function() {
   v.setHeaders( { 'Cache-Control': 'max-age=60' } );
-}
+})
 ----
 
 To clear headers, call with empty object like with
@@ -318,7 +322,7 @@ Please note that you have to set the direct DataVaccinator URL in <<_init, init(
 
 DataVaccinator offers you some sort of SSE (Searchable Symmetric Encryption) to allow you the search inside of PID/PII. By SSE, the DataVaccinator Vault is not storing unencrypted data while offering to search for it.
 
-For further information, read the search documentation in dataVaccinator GutHub repository.
+For further information, read link:https://github.com/Kukulkano/dv-vault/blob/master/docs/searchPlugin.adoc[the search documentation in dv-vault GitHub repository].
 
 === enableSearchFunction
 
@@ -331,11 +335,11 @@ For further information, read the search documentation in dataVaccinator GutHub 
 |Return value:
 |(boolean) success
 |Info:
-a|Here you submit an array of field names to be used for <<_search, search()>> function. If your payload contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs using the <<_search, search()>> function.
+a|Here you submit an array of field names to be used for <<_search, search()>> function. If your payload is JSON and contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs later using the <<_search, search()>> function.
 
 To disable the feature, submit an empty array or no parameter.
 
-NOTE: This only works if the payload given in <<_add, add()>>
+IMPORTANT: This only works if the payload given in <<_add, add()>>
 or <<_update, update()>> calls is a valid JSON string!
 |=======
 
@@ -361,7 +365,7 @@ NOTE: This only works if the DataVaccinator Vault activated the "search" plugin.
 
 == Publishing API
 
-The publishing API are additional functions for specific purpose. In distributed systems it may be needed to provide the payload to external paries. Think of health or police work, where sometimes datasets have to become exchanged in a way that person information has to be included. But even in such cases, the pseudonymisation should not become broken. Thus, the better way is to exchange pseudonymized datasets and grant access to the PID/PII by the receiving party.
+The publishing API are additional functions for specific purpose. In distributed systems it may be needed to provide the payload to external parties. Think of health or police work, where sometimes datasets have to become exchanged in a way that person information has to be included. But even in such cases, the pseudonymisation should not become broken. Thus, the better way is to exchange pseudonymized datasets with VIDs and grant access to the PID/PII by the receiving party.
 
 This is what the publishing functions allow you to do. Obviously, the receiving party should not know your app-id (password for your PID/PII) and therefore the publishing functions need a separate password provided for encryption. This is a new key you should share with the receiving party, together with the VID created.
 
@@ -379,14 +383,14 @@ This is what the publishing functions allow you to do. Obviously, the receiving 
 
 A typical process for exchanging pseudonymized information with DataVaccinator works like this:
 
-. Make sure the receiving party is getting a login to DataVaccinator:
-.. They need *sid* and *spwd*.
+. Make sure the receiving party is getting a login to your DataVaccinator instance:
+.. They need their own *sid* and *spwd*.
 .. Their system has to become whitelisted (IP whitelisting).
 .. You may have to contact your DataVaccinator Vault provider to enable this (if you're not hosting the DataVaccinator Vault by yourself).
-. Exchange a password for usage with DataVaccinator between you and the receiving party.
-. Push the datasets you like to exchange to DataVaccinator (using the <<_publish, publish()>> function) and add the resulting VIDs to your exchange data (payloads).
-. Submit your data to the receiving party.
-. The receiving party uses its *sid*/*spwd* and the <<_getpublished, getPublished()>> function to retrieve the PID/PII information if needed.
+. Exchange a secure password for usage with DataVaccinator between you and the receiving party.
+. Push the PID/PII datasets to exchange to DataVaccinator (using the <<_publish, publish()>> function) and attach the resulting VIDs to your exchange data (payloads).
+. Submit your exchange data to the receiving party.
+. The receiving party uses its *sid*/*spwd* and the <<_getpublished, getPublished()>> function to retrieve the PID/PII information if needed using your attached VIDs.
 
 
 === publish
@@ -394,18 +398,19 @@ A typical process for exchanging pseudonymized information with DataVaccinator w
 [cols="1,4"]
 |=======
 |Description:
-|Create a new user entry for publishing.
+|Create a new PID entry for publishing.
 |Parameters:
 |(string) vaccinationData, (string) password, (int) durationDays
 |Return value:
 |(promise) (string) VID
 |Info:
-a|The *vaccinationData* is some JSON encoded dataset similar to the new function. It may contain personal information of a person. This is then returned later by <<_get, get()>> function.
+a|The *vaccinationData*, your PID information, is some JSON encoded dataset similar to the <<_new, new()>> function. It may contain personal information of a person. This is then returned later by <<_getpublished, getPublished()>> function.
 
-The *password* is used for encryption of the payload.
+The *password* is a textual representation of a password used for encryption of the *vaccinationData* payload. We hash this with SHA256 for usage as encryption key, so you do not need to do that.
 
-The *durationDays* are defining the expiration for this publishing. If the number of days is due, the DataVaccinator Vault will delete the entry automatically.
-The publishing function asks for a password because it will use this to encrypt the payload. It is not using the provided app-id as password.
+The *durationDays* are defining the expiration for this publishing. If the number of days is due, the DataVaccinator Vault will delete the entry automatically. Allowed values are between 1 and 365. Other values will trigger an error.
+
+The publishing function asks for a password because it will use this to encrypt the payload. It is not using the provided app-id as password!
 
 Refer to <<_new, new()>> function for further details.
 
@@ -422,7 +427,7 @@ Refer to <<_new, new()>> function for further details.
 |Return value:
 |(promise) (object array) vaccinationData
 |Info:
-a|The submitted *VID* is the identifying Vaccination ID (previously returned by *publish()*). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. If you want to provide more than 500 VIDs, please call this
+a|The submitted **VID**s are the identifying Vaccination IDs, previously returned by <<_publish, publish()>>. Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. If you want to provide more than 500 VIDs, please call this
 function in chunks (will trigger an exception otherwise).
 
 The returned payload is an associative object array with the *VID* as key and some object as value. The value object is having two fields: *status* (OK or NOTFOUND) and *data* (the Vaccination Data). If *status* is NOTFOUND, data is false.
@@ -432,13 +437,13 @@ Refer to <<_get, get()>> function for further details on the returned format.
 
 == Properties
 
-There are a few class properties that can be useful:
+There are a few public class properties that can be useful:
 
-*debugging* = If *true*, the debugging gets activated. With *false* it is deactivated. By this, you can turn on/off debugging at any time.
+debugging:: If *true*, the debugging gets activated. With *false* it is deactivated. By this, you can turn on/off debugging at any time.
 
-*useCache* = Set to *false* directly after calling init() to disable any local caching. We suggest to not turn caching on/off during a working session. Instead, use it once after calling init() function.
+useCache:: Set to *false* directly after calling init() to disable any local caching. We suggest to not turn caching on/off during a working session. Instead, use it once after calling init() function.
 
-*appId* = Can get used to read the currently used App-ID. We suggest to not edit/write this value.
+appId:: Can get used to read the currently used App-ID. We suggest to not edit/write this value.
 
 == Error handling
 
