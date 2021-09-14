@@ -116,7 +116,7 @@ class vaccinator {
                 fetch(that.url, params)
                 .then(function(response) {
                     if (response.status !== 200) {
-                        throw(new vaccinatorError("new: URL request failed with status " + 
+                        reject(new vaccinatorError("new: URL request failed with status " + 
                                     response.status, VACCINATOR_SERVICE));
                     }
                     return response.json();
@@ -134,12 +134,12 @@ class vaccinator {
                             });
                         }
                     } else {
-                        throw(new vaccinatorError("new: Result was not OK (Code " +
-                                    jsonResult.code+"-" + jsonResult.desc + ")", 
+                        reject(new vaccinatorError("new: Result was not OK (Code " +
+                                    jsonResult.code+" - " + jsonResult.desc + ")", 
                                     VACCINATOR_SERVICE, jsonResult.code));
                     }
                 }).catch(function(e) {
-                    throw(new vaccinatorError("new: URL request failed: [" + e + "]", 
+                    reject(new vaccinatorError("new: URL request failed: [" + e + "]", 
                                     VACCINATOR_SERVICE));
                 });
             });
@@ -222,7 +222,7 @@ class vaccinator {
                         });
                     } else {
                         throw(new vaccinatorError("update: Result was not OK (Code " +
-                                    jsonResult.code+"-" + jsonResult.desc + ")", 
+                                    jsonResult.code+" - " + jsonResult.desc + ")", 
                                     VACCINATOR_SERVICE, jsonResult.code));
                     }
                 }).catch(function(e) {
@@ -288,7 +288,7 @@ class vaccinator {
                     });
                 } else {
                     throw(new vaccinatorError("delete: Result was not OK (Code " +
-                                jsonResult.code+"-" + jsonResult.desc + ")", 
+                                jsonResult.code+" - " + jsonResult.desc + ")", 
                                 VACCINATOR_SERVICE, jsonResult.code));
                 }
             }).catch(function(e) {
@@ -414,7 +414,7 @@ class vaccinator {
                             });
                         } else {
                             throw(new vaccinatorError("get: Result was not OK (Code " +
-                                        jsonResult.code+"-" + jsonResult.desc + ")", 
+                                        jsonResult.code+" - " + jsonResult.desc + ")", 
                                         VACCINATOR_SERVICE, jsonResult.code));
                         }
                     }).catch(function(e) {
@@ -475,11 +475,14 @@ class vaccinator {
                 fetch(that.url, params)
                 .then(function(response) {
                     if (response.status !== 200) {
-                        throw(new vaccinatorError("getPublished: URL request failed with status " + 
-                                    response.status, VACCINATOR_SERVICE));
+                        reject("getPublished: URL request failed with status " + response.status);
+                        return null;
                     }
                     return response.json();
                 }).then(function(jsonResult) {
+                    if (jsonResult === null) {
+                        return;
+                    }
                     if (jsonResult.status === "OK") {
                         that._debug("getPublished: Successfully received vData. Processing...");
                         // decrypt vData
@@ -505,16 +508,19 @@ class vaccinator {
                         resolve(data);
 
                     } else {
-                        throw(new vaccinatorError("getPublished: Result was not OK (Code " +
-                                    jsonResult.code+"-" + jsonResult.desc + ")", 
-                                    VACCINATOR_SERVICE, jsonResult.code));
+                        reject("getPublished: Result was not OK (Code " +
+                        jsonResult.code+" - " + jsonResult.desc + ")");
+                        return;
                     }
                 }).catch(function(e) {
                     throw(new vaccinatorError("getPublished: URL request failed: [" + e + "]", 
                                     VACCINATOR_SERVICE));
                 });
+            }).catch(function(e) {
+                throw(new vaccinatorError("getPublished: Some error: [" + e + "]", 
+                                VACCINATOR_SERVICE));
             });
-        });
+        })
     }
 
     /**
@@ -694,7 +700,7 @@ class vaccinator {
                     resolve(jsonResult);
                 } else {
                     throw(new vaccinatorError("getServerInfo: Result was not OK (Code " +
-                                jsonResult.code+"-" + jsonResult.desc + ")", 
+                                jsonResult.code+" - " + jsonResult.desc + ")", 
                                 VACCINATOR_SERVICE, jsonResult.code));
                 }
             }).catch(function(e) {
@@ -770,7 +776,7 @@ class vaccinator {
                     resolve(jsonResult.vids);
                 } else {
                     throw(new vaccinatorError("search: Result was not OK (Code " +
-                                jsonResult.code+"-" + jsonResult.desc + ")", 
+                                jsonResult.code+" - " + jsonResult.desc + ")", 
                                 VACCINATOR_SERVICE, jsonResult.code));
                 }
             }).catch(function(e) {
