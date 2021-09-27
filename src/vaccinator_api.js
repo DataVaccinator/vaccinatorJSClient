@@ -23,7 +23,7 @@ class vaccinator {
      * @param {string} appId (optional)
      * @param {string} password (optional)
      * @param {boolean} debugMode (optional)
-     * @returns {boolean} success
+     * @returns {promise} success
      */
     async init(url, userName, appId, password, debugMode) {
         // initialize the common parameters
@@ -68,7 +68,11 @@ class vaccinator {
     }
 
     /**
+     * 
      * @param {string} vData 
+     * @param {boolean} publishing 
+     * @param {string} password 
+     * @param {int} duration 
      * @returns {promise} vid
      */
     async _new(vData, publishing, password, duration) {
@@ -788,7 +792,7 @@ class vaccinator {
     }
     
     /**
-     * @returns {string}
+     * @returns {promise} app-id
      */
     async getAppId() {
         var that = this;
@@ -1060,7 +1064,7 @@ class vaccinator {
      * 
      * @param {string} vid 
      * @param {string} vData 
-     * @returns {boolean}
+     * @returns {promise} bool success
      */
     async _storeCache(vid, vData) {
         if (!this.useCache) {
