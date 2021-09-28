@@ -5,17 +5,19 @@
  * See github LICENSE file for license text.
  */
 class vaccinator {
-  url = "";           // current class connection to service URL
-  userName = "";      // currently used userName
-  password = "";      // currently used password
-  appId = "";         // currently used App ID
-  debugging = false;  // if debugging is activated
-  headers = {};       // optional additional headers to add to fetch requests
-  useCache = true;    // status for cache usage (initially true)
-  cache = {};         // cache object (hold in memory)
-  searchFields = [];  // currently used search fields
-  sid = 0;            // current service provider id (enableDirectLogin)
-  spwd = "";          // current service provider password (enableDirectLogin)
+  constructor() {
+    this.url = "";           // current class connection to service URL
+    this.userName = "";      // currently used userName
+    this.password = "";      // currently used password
+    this.appId = "";         // currently used App ID
+    this.debugging = false;  // if debugging is activated
+    this.headers = {};       // optional additional headers to add to fetch requests
+    this.useCache = true;    // status for cache usage (initially true)
+    this.cache = {};         // cache object (hold in memory)
+    this.searchFields = [];  // currently used search fields
+    this.sid = 0;            // current service provider id (enableDirectLogin)
+    this.spwd = "";          // current service provider password (enableDirectLogin)
+  }
 
   /**
    * @param {string} url 
