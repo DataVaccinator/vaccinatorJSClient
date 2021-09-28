@@ -27,44 +27,53 @@ class vaccinator {
    */
   async init(url, userName, appId, password, debugMode) {
     // initialize the common parameters
-    if (url === undefined || userName === undefined ||
-      url === "" || userName === "") {
-      throw (new vaccinatorError("init: url and userName parameter are mandatory",
-        VACCINATOR_INVALID));
-    }
-    if (debugMode !== undefined) { this.debugging = debugMode; }
-
-    if (!localforage.supports(localforage.INDEXEDDB)) {
-      throw (new vaccinatorError("init: please use an up to date webbrowser (no IndexedDB supported)",
-        VACCINATOR_UNKNOWN));
-    }
-
-    if (appId !== undefined && appId !== "") {
-      if (!this.validateAppId(appId)) {
-        throw (new vaccinatorError("init: given appId does not validate!",
+    return new Promise((resolve, reject) => {
+      if (url === undefined || userName === undefined ||
+        url === "" || userName === "") {
+        reject(new vaccinatorError("init: url and userName parameter are mandatory",
           VACCINATOR_INVALID));
+        return;
       }
-    };
+      if (debugMode !== undefined) { this.debugging = debugMode; }
 
-    this.url = url;
-    this.userName = userName;
-    this.appId = appId;
-    this.password = password;
-    if (appId !== undefined && appId !== "") {
-      this._saveAppId(appId);
-    } else {
-      this.appId = undefined;
-    }
+      if (!localforage.supports(localforage.INDEXEDDB)) {
+        reject(new vaccinatorError("init: please use an up to date webbrowser (no IndexedDB supported)",
+          VACCINATOR_UNKNOWN));
+        return;
+      }
 
-    // init database
-    localforage.config({
-      name: 'vaccinator database'
+      if (appId !== undefined && appId !== "") {
+        if (!this.validateAppId(appId)) {
+          reject(new vaccinatorError("init: given appId does not validate!",
+            VACCINATOR_INVALID));
+          return;
+        }
+      };
+
+      this.url = url;
+      this.userName = userName;
+      this.appId = appId;
+      this.password = password;
+      if (appId !== undefined && appId !== "") {
+        this._saveAppId(appId);
+      } else {
+        this.appId = undefined;
+      }
+
+      // init database
+      localforage.config({
+        name: 'vaccinator database'
+      });
+
+      // restore cache object
+      this._ensureCacheLoaded().then(() => {
+        this._debug("Initialization done");
+        resolve(true);
+      }).catch((e) => {
+        reject(new vaccinatorError("init: Generic issue: [" + e + "]",
+          VACCINATOR_UNKNOWN));
+      });
     });
-
-    // restore cache object
-    await this._ensureCacheLoaded();
-    this._debug("Initialization done");
-    return true;
   }
 
   /**
