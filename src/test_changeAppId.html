@@ -19,8 +19,8 @@
       var appidOld = "Rc-De_6nyCbb";
       var appidNew = "Zdn45jhdn425";
       try {
-        var a = new vaccinator();
-        a.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appidOld, "password", true)
+        var vaccine = new vaccinator();
+        vaccine.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appidOld, "password", true)
         .then(function() {
         
           // !!! Create test data payload
@@ -37,18 +37,20 @@
           // create 2 new entries
           var promises = Array();
           for (var i = 0; i<2; i++) {
-            promises.push(a.userNew(payload));
+            promises.push(vaccine.new(payload));
           }
-          Promise.all(promises).then(function(pids) {
+          Promise.all(promises)
+          .then(function(pids) {
             // got n new pid's for the new test items.
             console.log(pids);
             
-            a.wipeCache().then(function() {
+            vaccine.wipeCache()
+            .then(function() {
             
               // now re-encrypting them
-              a.changeAppId(pids, appidOld, appidNew)
+              vaccine.changeAppId(pids, appidOld, appidNew)
               .then(function(cnt) {
-                console.log("Finished changeAppId and manipulated " + cnt + " items.");
+                console.log("Finished changeAppId and updated " + cnt + " items.");
               });
               
             });
@@ -58,7 +60,7 @@
 
       } catch (e) {
         // catch any vaccinator class errors from here
-        console.error(e);
+        console.error("Catched: ", e);
       }
     </script>
   </body>

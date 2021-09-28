@@ -50,7 +50,11 @@
 
           // !!! test new() function
           var vid = await v.new(vData);  
-          console.log("The new VID is " + vid);
+          if (vid === undefined) {
+            console.error("Result is undefined!");
+          } else {
+            console.log("The new VID is " + vid);
+          }
 
           // !!! test update() function
           vData = '{"firstname":"Dr. Patrick","lastname":"Star",'+
@@ -67,8 +71,25 @@
           // use some unknown VID to simulate "not found" and trigger vaccinator call
           var toGet = [ vids[0], "0d52f1b0a314fba7d45e87ca5bf5e654" ];
           var vDataArray = await v.get(toGet);
-          console.log("Successfully received vData object array:");
+          console.log("Successfully received vData object array from server:");
           console.log(vDataArray);
+          if (vDataArray["0d52f1b0a314fba7d45e87ca5bf5e654"].status != "NOTFOUND") {
+            console.error("Found object with invalid VID?");
+          }
+          if (vDataArray[vids[0]].status != "OK") {
+            console.error("Missing stored data of VID "+vids[0]);
+          }
+
+          // get again from cache
+          vDataArray = await v.get(toGet);
+          console.log("Successfully received vData object array from cache:");
+          console.log(vDataArray);
+          if (vDataArray["0d52f1b0a314fba7d45e87ca5bf5e654"].status != "NOTFOUND") {
+            console.error("Found object with invalid VID?");
+          }
+          if (vDataArray[vids[0]].status != "OK") {
+            console.error("Missing stored data of VID "+vids[0]);
+          }
           
           // !!! test search() function
           vids = await v.search("pat");
@@ -92,7 +113,11 @@
 
           // !!! test delete() function
           vids = await v.delete(vid);
-          console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
+          if (vids.length != 1) {
+            console.error("Failed deletion of VID "+vid);
+          } else {
+            console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
+          }
 
           // !!! test wipeCache() function
           // A weekday token will force the cache to become
@@ -112,7 +137,11 @@
                   '"address_zip":"12345", "address_country":"Bikiniland"'+
                   '}';
           var vid = await v.publish(vData, "myPassword", 5);
-          console.log("The new VID is " + vid);
+          if (!vid) {
+            console.error("Publish failed!");
+          } else {
+            console.log("The new VID is " + vid);
+          }
 
           // !!! test getpublished() function
           // add some unknown VID to simulate "not found" and trigger vaccinator call
@@ -120,6 +149,9 @@
           var vDataArray = await v.getPublished(toGet, "myPassword");
           console.log("Successfully received vData object array:");
           console.log(vDataArray);
+          if (vDataArray[vid].status != "OK") {
+            console.error("Missing stored data of published VID "+vid);
+          }
 
           // !!! test delete() function
           vids = await v.delete(vid);
@@ -130,7 +162,7 @@
 
         } catch (e) {
           // catch any vaccinator class errors from here
-          console.error(e);
+          console.error("CATCHED ERROR:", e);
         }
       }
     </script>
