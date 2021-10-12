@@ -37,6 +37,8 @@
           const serverInfo = await v.getServerInfo();
           console.log("Server-Info: " + JSON.stringify(serverInfo));
 
+          console.log("\n \n ");
+
           // !!! Create test data vData
           var vData = '';
           vData = '{"firstname":"Spongebob","lastname":"Square Pants", '+
@@ -53,7 +55,7 @@
           if (vid === undefined) {
             console.error("Result is undefined!");
           } else {
-            console.log("The new VID is " + vid);
+            console.log("The new VID is " + vid + "\n \n ");
           }
 
           // !!! test update() function
@@ -61,11 +63,11 @@
                   '"address_street":"Bikini-Street"}';
           vid = await v.update(vid, vData);
 
-          console.log("Successfully updated VID " + vid);
+          console.log("Successfully updated VID " + vid + "\n \n ");
 
           // !!! test wipe() function
           var vids = await v.wipe(vid + " " + "dc2520e55dbc02d44a6ebc160cbffa62");
-          console.log("Wiped data from cache (force reload)");
+          console.log("Wiped data from cache (force reload)" + "\n \n ");
 
           // !!! test get() function
           // use some unknown VID to simulate "not found" and trigger vaccinator call
@@ -79,10 +81,11 @@
           if (vDataArray[vids[0]].status != "OK") {
             console.error("Missing stored data of VID "+vids[0]);
           }
+          console.log("\n \n ");
 
           // get again from cache
           vDataArray = await v.get(toGet);
-          console.log("Successfully received vData object array from cache:");
+          console.log("Successfully received vData object array (should be from cache):");
           console.log(vDataArray);
           if (vDataArray["0d52f1b0a314fba7d45e87ca5bf5e654"].status != "NOTFOUND") {
             console.error("Found object with invalid VID?");
@@ -90,6 +93,10 @@
           if (vDataArray[vids[0]].status != "OK") {
             console.error("Missing stored data of VID "+vids[0]);
           }
+          if (v.fromCache.length != 1) {
+            console.error("Data for "+vids[0]+" should come from cache, but fromCache counter is != 1 ("+v.fromCache.length+")");
+          }
+          console.log("\n \n ");
           
           // !!! test search() function
           vids = await v.search("pat");
@@ -111,6 +118,8 @@
           console.log("Found using 'Dr. Patrick': " + JSON.stringify(vids));
           if (vids.length !== 1) { console.error("Wrong number of results!"); }
 
+          console.log("\n \n ");
+
           // !!! test delete() function
           vids = await v.delete(vid);
           if (vids.length != 1) {
@@ -118,6 +127,8 @@
           } else {
             console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
           }
+
+          console.log("\n \n ");
 
           // !!! test wipeCache() function
           // A weekday token will force the cache to become
@@ -129,6 +140,8 @@
           } else {
             console.log("Cache NOT wiped");
           }
+
+          console.log("\n \n ");
 
           // !!! test publish() function
           vData = '{"firstname":"Sandy","lastname":"Cheeks", '+
@@ -143,6 +156,8 @@
             console.log("The new VID is " + vid);
           }
 
+          console.log("\n \n ");
+
           // !!! test getpublished() function
           // add some unknown VID to simulate "not found" and trigger vaccinator call
           var toGet = [ vid, "ff52f1b0a314fba7d45e87ca5bf5e654" ];
@@ -153,15 +168,20 @@
             console.error("Missing stored data of published VID "+vid);
           }
 
+          console.log("\n \n ");
+
           // !!! test delete() function
           vids = await v.delete(vid);
           console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
+
+          console.log("\n \n ");
           
           // Done
           console.log("Test finished");
 
         } catch (e) {
           // catch any vaccinator class errors from here
+          console.log("\n \n ");
           console.error("CATCHED ERROR:", e);
         }
       }

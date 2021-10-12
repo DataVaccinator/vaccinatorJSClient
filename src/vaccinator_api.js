@@ -4,6 +4,7 @@
  * @link https://www.datavaccinator.com
  * See github LICENSE file for license text.
  */
+
 class vaccinator {
   constructor() {
     this.url = "";           // current class connection to service URL
@@ -17,6 +18,8 @@ class vaccinator {
     this.searchFields = [];  // currently used search fields
     this.sid = 0;            // current service provider id (enableDirectLogin)
     this.spwd = "";          // current service provider password (enableDirectLogin)
+    this.db;                 // current database handle
+    this.fromCache = [];     // a list of vids retrieved from cache in last get call
   }
 
   /**
@@ -29,52 +32,50 @@ class vaccinator {
    */
   async init(url, userName, appId, password, debugMode) {
     // initialize the common parameters
-    return new Promise((resolve, reject) => {
+    var that = this;
+    return new Promise(async (resolve, reject) => {
       if (url === undefined || userName === undefined ||
         url === "" || userName === "") {
         reject(new vaccinatorError("init: url and userName parameter are mandatory",
           VACCINATOR_INVALID));
         return;
       }
-      if (debugMode !== undefined) { this.debugging = debugMode; }
-
-      if (!localforage.supports(localforage.INDEXEDDB)) {
-        reject(new vaccinatorError("init: please use an up to date webbrowser (no IndexedDB supported)",
-          VACCINATOR_UNKNOWN));
-        return;
-      }
+      if (debugMode !== undefined) { that.debugging = debugMode; }
 
       if (appId !== undefined && appId !== "") {
-        if (!this.validateAppId(appId)) {
+        if (!that.validateAppId(appId)) {
           reject(new vaccinatorError("init: given appId does not validate!",
             VACCINATOR_INVALID));
           return;
         }
       };
 
-      this.url = url;
-      this.userName = userName;
-      this.appId = appId;
-      this.password = password;
-      if (appId !== undefined && appId !== "") {
-        this._saveAppId(appId);
-      } else {
-        this.appId = undefined;
+      // init database
+      that.db = localforage.createInstance({ name: 'vaccinator-' + userName });
+
+      if (!that.db.supports(localforage.INDEXEDDB)) {
+        reject(new vaccinatorError("init: please use an up to date webbrowser (no IndexedDB supported)",
+          VACCINATOR_UNKNOWN));
+        return;
       }
 
-      // init database
-      localforage.config({
-        name: 'vaccinator database'
-      });
+      that.url = url;
+      that.userName = userName;
+      that.appId = appId;
+      that.password = password;
+      if (appId !== undefined && appId !== "") {
+        that._saveAppId(appId);
+      } else {
+        that.appId = undefined;
+      }
+
+      // remove possible artefacts from a previous caching bug
+      // this can get removed in Q1/2022
+      await localforage.dropInstance({ name: 'vaccinator database' });
 
       // restore cache object
-      this._ensureCacheLoaded().then(() => {
-        this._debug("Initialization done");
-        resolve(true);
-      }).catch((e) => {
-        reject(new vaccinatorError("init: Generic issue: [" + e + "]",
-          VACCINATOR_UNKNOWN));
-      });
+      that._debug("Initialization done");
+      resolve(true);
     });
   }
 
@@ -347,6 +348,7 @@ class vaccinator {
       var uncached = []; // will get the uncached vids
       var finalResult = new Object(); // compose result
       var promises = []; // will hold the promises
+      that.fromCache = []; // init
       vids.map((vid) => {
         // create an array of promises for cache check (use with Promise.all)
         promises.push(that._retrieveCache(vid)
@@ -356,6 +358,7 @@ class vaccinator {
               that._debug("get: Add vid [" + vid + "] for getting from server");
               return;
             }
+            that.fromCache.push(vid);
             that._debug("get: Retrieve cached vData for vid [" + vid + "]");
             var r = { "status": "OK", "data": vData };
             finalResult[vid] = r;
@@ -572,9 +575,13 @@ class vaccinator {
       }
       if (!Array.isArray(vids)) { vids = vids.split(" "); }
 
-      that._removeCache(vids).then(() => {
-        resolve(vids);
-      });
+      that._removeCache(vids)
+      .then(() => {
+        return resolve(vids);
+      }).catch((error) => {
+        reject(new vaccinatorError("wipe: Failed wipe [" + error + "]",
+          VACCINATOR_UNKNOWN));
+      });;
     });
   }
 
@@ -656,11 +663,12 @@ class vaccinator {
    */
   async wipeCache(token) {
     var that = this;
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (token !== undefined && token !== "") {
         // need to check if wipe is needed
-        localforage.getItem("payloadToken")
-        .then((knownToken) => {
+        try {
+          var knownToken = await that.db.getItem("payloadToken");
+        
           if (knownToken === token) {
             that._debug("wipeCache: No need to wipe cache (known token)");
             return resolve(false); // no need to wipe
@@ -669,11 +677,11 @@ class vaccinator {
           .then(() => {
             return resolve(true);
           });
-        }).catch((error) => {
+        } catch(error) {
           reject(new vaccinatorError("Failed reading payloadToken [" + error + "]",
             VACCINATOR_UNKNOWN));
           return;
-        });
+        };
       }
       // without token, we're always wiping the cache
       that._wipeCache()
@@ -694,25 +702,27 @@ class vaccinator {
   async _wipeCache(token) {
     // wipe
     this._debug("_wipeCache: Wiping cache");
-    this.cache = {};
     var that = this;
-    return new Promise((resolve, reject) => {
-      localforage.setItem("payload", that.cache)
-      .then((value) => {
-        if (token !== undefined && token !== "") {
-          // need to save payloadToken
-          localforage.setItem("payloadToken", token)
-          .then(() => {
-            that._debug("_wipeCache: New cache token is [" + token + "]");
-            return resolve(true);
-          });
-        }
-        return resolve(true);
-      }).catch((error) => {
-        reject(new vaccinatorError("Failed storing wiped cache [" + error + "]",
-          VACCINATOR_UNKNOWN));
-        return;
-      });
+    return new Promise(async (resolve, reject) => {
+      var appId = await that.db.getItem("appId-" + that.userName);
+      
+      await that.db.clear();
+
+      await that.db.setItem("appId-" + that.userName, appId);
+      
+      if (token !== undefined && token !== "") {
+        // need to save payloadToken
+        that.db.setItem("payloadToken", token)
+        .then(() => {
+          that._debug("_wipeCache: New cache token is [" + token + "]");
+          return resolve(true);
+        });
+      }
+      return resolve(true);
+    }).catch((error) => {
+      reject(new vaccinatorError("Failed storing wiped cache [" + error + "]",
+        VACCINATOR_UNKNOWN));
+      return;
     });
   }
 
@@ -860,7 +870,7 @@ class vaccinator {
       // try getting it from database
       that._debug("getAppId: Read app-id from database");
       var dbKey = "appId-" + that.userName;
-      localforage.getItem(dbKey)
+      that.db.getItem(dbKey)
       .then((value) => {
         var appId = value;
         var key = that._getPasswordKey();
@@ -939,7 +949,7 @@ class vaccinator {
     this._debug("_saveAppId: Store/update app-id in local storage");
     var dbKey = "appId-" + this.userName;
     this.appId = appId; // keep local
-    return localforage.setItem(dbKey, store);
+    return this.db.setItem(dbKey, store);
   }
 
   /**
@@ -1125,23 +1135,18 @@ class vaccinator {
    */
   async _storeCache(vid, vData) {
     var that = this;
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!that.useCache) {
         return resolve(true);
       }
-      that._ensureCacheLoaded()
+      that.db.setItem(vid, vData)
       .then(() => {
-        var dbKey = that._hash(vid);
-        that._debug("_storeCache: Storing vData for VID " + vid + " in cache");
-        that.cache[dbKey] = vData;
-        localforage.setItem("vData", that.cache)
-        .then((value) => {
-          return resolve(true);
-        });
+        that._debug("_storeCache: Stored vData for VID " + vid + " in cache");
+        return resolve(true);
       }).catch((error) => {
         reject(new vaccinatorError("_storeCache: Failed storing vData (store) [" +
           error + "]", VACCINATOR_UNKNOWN));
-      });
+      });;
     });
   }
 
@@ -1153,17 +1158,16 @@ class vaccinator {
    */
   async _retrieveCache(vid) {
     var that = this;
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (!that.useCache) {
         return resolve(null);
       }
-      that._ensureCacheLoaded()
-      .then(() => {
-        // use cache object
-        var dbKey = that._hash(vid);
-        that._debug("_retrieveCache: Retrieve vData for VID " + vid +
-          " from cache");
-        resolve(that.cache[dbKey]);
+      // use cache object
+      that._debug("_retrieveCache: Retrieve vData for VID " + vid +
+        " from cache");
+      that.db.getItem(vid)
+      .then((vData) => {
+        resolve(vData);
       }).catch((error) => {
         reject(new vaccinatorError("_retrieveCache: Failed retrieving vData (store) [" +
           error + "]", VACCINATOR_UNKNOWN));
@@ -1179,56 +1183,19 @@ class vaccinator {
    */
   async _removeCache(vids) {
     var that = this;
-    return new Promise((resolve, reject) => {
-      that._ensureCacheLoaded()
+    return new Promise(async (resolve, reject) => {
+      that.db.removeItems(vids)
       .then(() => {
-        vids.forEach((item, index) => {
-          var dbKey = that._hash(item);
-          delete that.cache[dbKey];
-        });
-        localforage.setItem("payload", that.cache)
-        .then((value) => {
-          that._debug("_removeCache: Removed payload for VID(s) " +
-            JSON.stringify(vids) + " from cache");
-          resolve(true);
-        });
+        that._debug("_removeCache: Removed payload for VID(s) " +
+          JSON.stringify(vids) + " from cache");
+        resolve(true);
       }).catch((error) => {
-        reject(new vaccinatorError("_removeCache: Failed storing payload (remove) [" +
+        reject(new vaccinatorError("_removeCache: Failed removing payload (remove) [" +
           error + "]", VACCINATOR_UNKNOWN));
-      });
-    });
-  }
-
-  /**
-   * Make sure that the local cache is read and actual
-   * 
-   * @returns {promise} boolean
-   */
-  async _ensureCacheLoaded() {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (!that.useCache) {
-        return resolve(true);
-      }
-      if (Object.keys(that.cache).length === 0) {
-        // initially, need to get cache from database
-        that._debug("_ensureCacheLoaded: Restore cache from local storage");
-        localforage.getItem("payload")
-        .then((payload) => {
-          if (payload === null) { payload = {}; }
-          that.cache = payload;
-          that._debug("_ensureCacheLoaded: Restored cache with " +
-            Object.keys(that.cache).length + " objects");
-          return resolve(true);
-        }).catch((error) => {
-          reject(new vaccinatorError("_ensureCacheLoaded: Failed database access [" +
-            error + "]", VACCINATOR_UNKNOWN));
-          return;
-        });
-      }
-      // nothing to do
-      that._debug("_ensureCacheLoaded: Cache is loaded");
-      resolve(true);
+      });;
+    }).catch((error) => {
+      reject(new vaccinatorError("_removeCache: Failed removing payload (remove) [" +
+        error + "]", VACCINATOR_UNKNOWN));
     });
   }
 
@@ -1334,3 +1301,164 @@ vaccinatorError.prototype = Object.create(
   Error.prototype,
   { name: { value: 'vaccinatorError', enumerable: false } }
 );
+
+
+// -----------------------
+// LOCALFORAGE PLUGIN
+// Download from here:
+// https://github.com/localForage/localForage-removeItems/blob/master/dist/localforage-removeitems.js
+// -----------------------
+
+(function (global, factory) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('localforage')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'localforage'], factory) :
+  (factory((global.localforageRemoveItems = global.localforageRemoveItems || {}),global.localforage));
+}(this, (function (exports,localforage) { 'use strict';
+
+localforage = 'default' in localforage ? localforage['default'] : localforage;
+
+function executeCallback(promise, callback) {
+  if (callback) {
+      promise.then(function (result) {
+          callback(null, result);
+      }, function (error) {
+          callback(error);
+      });
+  }
+  return promise;
+}
+
+function removeItemsGeneric(keys, callback) {
+  var localforageInstance = this;
+
+  var itemPromises = [];
+  for (var i = 0, len = keys.length; i < len; i++) {
+      var key = keys[i];
+      itemPromises.push(localforageInstance.removeItem(key));
+  }
+
+  var promise = Promise.all(itemPromises);
+
+  executeCallback(promise, callback);
+  return promise;
+}
+
+function removeItemsIndexedDB(keys, callback) {
+  var localforageInstance = this;
+  var promise = localforageInstance.ready().then(function () {
+      return new Promise(function (resolve, reject) {
+          var dbInfo = localforageInstance._dbInfo;
+          var transaction = dbInfo.db.transaction(dbInfo.storeName, 'readwrite');
+          var store = transaction.objectStore(dbInfo.storeName);
+          var firstError;
+
+          transaction.oncomplete = function () {
+              resolve();
+          };
+
+          transaction.onabort = transaction.onerror = function () {
+              if (!firstError) {
+                  reject(transaction.error || 'Unknown error');
+              }
+          };
+
+          function requestOnError(evt) {
+              var request = evt.target || this;
+              if (!firstError) {
+                  firstError = request.error || request.transaction.error;
+                  reject(firstError);
+              }
+          }
+
+          for (var i = 0, len = keys.length; i < len; i++) {
+              var key = keys[i];
+              if (typeof key !== 'string') {
+                  console.warn(key + ' used as a key, but it is not a string.');
+                  key = String(key);
+              }
+              var request = store.delete(key);
+              request.onerror = requestOnError;
+          }
+      });
+  });
+  executeCallback(promise, callback);
+  return promise;
+}
+
+function executeSqlAsync(transaction, sql, parameters) {
+  return new Promise(function (resolve, reject) {
+      transaction.executeSql(sql, parameters, function () {
+          resolve();
+      }, function (t, error) {
+          reject(error);
+      });
+  });
+}
+
+function removeItemsWebsql(keys, callback) {
+  var localforageInstance = this;
+  var promise = localforageInstance.ready().then(function () {
+      return new Promise(function (resolve, reject) {
+          var dbInfo = localforageInstance._dbInfo;
+          dbInfo.db.transaction(function (t) {
+              var storeName = dbInfo.storeName;
+
+              var itemPromises = [];
+              for (var i = 0, len = keys.length; i < len; i++) {
+                  var key = keys[i];
+                  if (typeof key !== 'string') {
+                      console.warn(key + ' used as a key, but it is not a string.');
+                      key = String(key);
+                  }
+                  itemPromises.push(executeSqlAsync(t, 'DELETE FROM ' + storeName + ' WHERE key = ?', [key]));
+              }
+
+              Promise.all(itemPromises).then(resolve, reject);
+          }, function (sqlError) {
+              reject(sqlError);
+          });
+      });
+  });
+  executeCallback(promise, callback);
+  return promise;
+}
+
+function localforageRemoveItems() /*keys, callback*/{
+  var localforageInstance = this;
+  var currentDriver = localforageInstance.driver();
+
+  if (currentDriver === localforageInstance.INDEXEDDB) {
+      return removeItemsIndexedDB.apply(localforageInstance, arguments);
+  } else if (currentDriver === localforageInstance.WEBSQL) {
+      return removeItemsWebsql.apply(localforageInstance, arguments);
+  } else {
+      return removeItemsGeneric.apply(localforageInstance, arguments);
+  }
+}
+
+function extendPrototype(localforage$$1) {
+  var localforagePrototype = Object.getPrototypeOf(localforage$$1);
+  if (localforagePrototype) {
+      localforagePrototype.removeItems = localforageRemoveItems;
+      localforagePrototype.removeItems.indexedDB = function () {
+          return removeItemsIndexedDB.apply(this, arguments);
+      };
+      localforagePrototype.removeItems.websql = function () {
+          return removeItemsWebsql.apply(this, arguments);
+      };
+      localforagePrototype.removeItems.generic = function () {
+          return removeItemsGeneric.apply(this, arguments);
+      };
+  }
+}
+
+var extendPrototypeResult = extendPrototype(localforage);
+
+exports.localforageRemoveItems = localforageRemoveItems;
+exports.extendPrototype = extendPrototype;
+exports.extendPrototypeResult = extendPrototypeResult;
+exports.removeItemsGeneric = removeItemsGeneric;
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+})));

@@ -23,6 +23,8 @@
         vaccine.init("http://vaccinator.vsdevel.de.regify.com/service.php", "volker", appidOld, "password", true)
         .then(function() {
         
+          console.log("\n \n ");
+
           // !!! Create test data payload
           var payload = '';
           payload = '{"firstname":"Spongebob","lastname":"Squarepants", '+
@@ -44,10 +46,13 @@
             // got n new pid's for the new test items.
             console.log(pids);
             
+            console.log("\n \n ");
+
             vaccine.wipeCache()
             .then(function() {
             
               // now re-encrypting them
+              console.log("\n \n ");
               vaccine.changeAppId(pids, appidOld, appidNew)
               .then(function(cnt) {
                 console.log("Finished changeAppId and updated " + cnt + " items.");
