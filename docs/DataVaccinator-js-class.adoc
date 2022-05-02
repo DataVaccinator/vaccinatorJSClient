@@ -221,10 +221,11 @@ After the function ran, the *new app-id* is the current app-id and overlays the 
 
 The whole process may take a long time, depending on the number of people affected. Until the promise is fulfilled you should show some "please wait" dialogue to tell the user that something is going on in the background.
 
-NOTE: It is important that this call contains ALL VIDs assigned to the given app-id. If not, some data in DataVaccinator Vault may stay encrypted with the old app-id. In the worst case, this would cause serious data loss.
+|=======
+
+CAUTION: It is important that this is called with ALL VIDs assigned to the given app-id. If not, some data in DataVaccinator Vault may stay encrypted with the old app-id. In the worst case, this would cause serious data loss!
 
 NOTE: In case this function was interrupted, there is a chance that some entries in DataVaccinator Vault may be encrypted with the new app-id and other still with the old one. The API is making sure that only Vaccination Data encrypted with the old app-id get re-encrypted (by using the *cs* value from the payload). By this, it is possible to call this function multiple times (with exactly the same parameters) to fix any previous interruption.
-|=======
 
 === getAppId
 
@@ -345,10 +346,10 @@ For further information, read link:https://github.com/Kukulkano/dv-vault/blob/ma
 a|Here you submit an array of field names to be used for <<search>> function. If your payload is JSON and contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs later using the <<search>> function.
 
 To disable the feature, submit an empty array or no parameter.
+|=======
 
 IMPORTANT: This only works if the payload given in <<new>>
 or <<update>> calls is a valid JSON string!
-|=======
 
 === search
 
@@ -364,11 +365,11 @@ or <<update>> calls is a valid JSON string!
 a|The search term is one or more words, divided by space. If multiple words are given, it will return only matches who matched both words in the payload (AND).
 
 Search words do not have to be complete and case does not matter. The search always begins on the left and returns all matches there. Thus, you can simply enter "joh foo" to find John Foobar.
+|=======
 
 NOTE: This only works if the <<enableSearchFunction>> function was called before using <<new>> or <<update>> calls. You can only search for entries that were pushed or updated with search function enabled.
 
 NOTE: This only works if the DataVaccinator Vault activated the "search" plugin. If not, you will get EC_MISSING_PARAMETERS.
-|=======
 
 == Publishing API
 
