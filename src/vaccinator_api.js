@@ -1,34 +1,48 @@
+/// <reference path="./vaccinator_api.d.ts" />
+
 /**
  * vaccinatorJsClient class module
  * @license MIT License
  * @link https://www.datavaccinator.com
  * See github LICENSE file for license text.
  */
-
 class vaccinator {
   constructor() {
+    /** @private */
     this.url = "";           // current class connection to service URL
+    /** @private */
     this.userName = "";      // currently used userName
+    /** @private */
     this.password = "";      // currently used password
+    /** @public */
     this.appId = "";         // currently used App ID
+    /** @public */
     this.debugging = false;  // if debugging is activated
+    /** @private */
     this.headers = {};       // optional additional headers to add to fetch requests
+    /** @public */
     this.useCache = true;    // status for cache usage (initially true)
+    /** @private */
     this.cache = {};         // cache object (hold in memory)
+    /** @private */
     this.searchFields = [];  // currently used search fields
+    /** @private */
     this.sid = 0;            // current service provider id (enableDirectLogin)
+    /** @private */
     this.spwd = "";          // current service provider password (enableDirectLogin)
+    /** @private */
     this.db;                 // current database handle
+    /** @public */
     this.fromCache = [];     // a list of vids retrieved from cache in last get call
   }
 
   /**
    * @param {string} url 
    * @param {string} userName
-   * @param {string} appId (optional)
-   * @param {string} password (optional)
-   * @param {boolean} debugMode (optional)
-   * @returns {promise} success
+   * @param {string?} appId
+   * @param {string?} password
+   * @param {boolean?} debugMode
+   * @returns {Promise<boolean>} self
    */
   async init(url, userName, appId, password, debugMode) {
     // initialize the common parameters
@@ -81,11 +95,12 @@ class vaccinator {
 
   /**
    * 
+   * @private
    * @param {string} vData 
    * @param {boolean} publishing 
    * @param {string} password 
    * @param {int} duration 
-   * @returns {promise} vid
+   * @returns {Promise<string>} vid
    */
   async _new(vData, publishing, password, duration) {
     var that = this;
@@ -168,7 +183,7 @@ class vaccinator {
 
   /**
    * @param {string} vData 
-   * @returns {promise} vid
+   * @returns {Promise<string>} vid
    */
   async new(vData) {
     // TODO: Enhance memory footprint by submitting vData to _new() by reference
@@ -177,7 +192,7 @@ class vaccinator {
 
   /**
    * @param {string} vData 
-   * @returns {promise} vid
+   * @returns {Promise<Promise<string>>} vid
    */
   async publish(vData, password, duration) {
     var that = this;
@@ -200,7 +215,7 @@ class vaccinator {
   /**
    * @param {string} vid
    * @param {string} vData 
-   * @returns {promise} vid
+   * @returns {Promise<string>} vid
    */
   async update(vid, vData) {
     var that = this;
@@ -264,8 +279,8 @@ class vaccinator {
   }
 
   /**
-   * @param {(string|string[])} vids
-   * @returns {promise} vids
+   * @param {string|string[]} vids
+   * @returns {Promise<string>} vids
    */
   async delete(vids) {
     var that = this;
@@ -330,8 +345,8 @@ class vaccinator {
   }
 
   /**
-   * @param {(string|string[])} vids
-   * @returns {promise} string
+   * @param {string|string[]} vids
+   * @returns {Promise<string>}
    */
   async get(vids) {
     var that = this;
@@ -462,8 +477,8 @@ class vaccinator {
   }
 
   /**
-   * @param {(string|string[])} vids
-   * @returns {string}
+   * @param {string|string[]} vids
+   * @returns {Promise<string>}
    */
   async getPublished(vids, password) {
     var that = this;
@@ -562,8 +577,8 @@ class vaccinator {
   }
 
   /**
-   * @param {(string|string[])} vids
-   * @returns {promise} vids
+   * @param {string|string[]} vids
+   * @returns {Promise<string>} vids
    */
   async wipe(vids) {
     var that = this;
@@ -586,10 +601,10 @@ class vaccinator {
   }
 
   /**
-   * @param {(string|string[])} vids
+   * @param {string|string[]} vids
    * @param {string} oldAppId
    * @param {string} newAppId
-   * @returns {promise} affectedCount
+   * @returns {Promise<int>} affectedCount
    */
   async changeAppId(vids, oldAppId, newAppId) {
     var that = this;
@@ -658,8 +673,8 @@ class vaccinator {
   }
 
   /**
-   * @param {string} token optional token
-   * @returns {promise} boolean
+   * @param {string?} token
+   * @returns {Promise<boolean>}
    */
   async wipeCache(token) {
     var that = this;
@@ -696,8 +711,9 @@ class vaccinator {
   }
 
   /**
-   * @param {string} token (optional)
-   * @returns {promise} boolean
+   * @private
+   * @param {string?} token
+   * @returns {Promise<boolean>}
    */
   async _wipeCache(token) {
     // wipe
@@ -727,7 +743,7 @@ class vaccinator {
   }
 
   /**
-   * @returns {Promise} array
+   * @returns {Promise<Array<any>>}
    */
   async getServerInfo() {
     var that = this;
@@ -778,7 +794,7 @@ class vaccinator {
   }
 
   /**
-   * @param {string[]} fields
+   * @param {string[]?} fields
    * @returns {boolean}
    */
   enableSearchFunction(fields) {
@@ -791,7 +807,7 @@ class vaccinator {
 
   /**
    * @param {string} searchTerm 
-   * @returns {Promise} vids array
+   * @returns {Promise<Array<string>>} vids array
    */
   async search(searchTerm) {
     var that = this;
@@ -856,7 +872,7 @@ class vaccinator {
   }
 
   /**
-   * @returns {promise} app-id
+   * @returns {Promise<string>} app-id
    */
   async getAppId() {
     var that = this;
@@ -903,8 +919,8 @@ class vaccinator {
   }
 
   /**
-   * @param {object} headersObj
-   * @returns {Boolean}
+   * @param {Headers} headersObj
+   * @returns {boolean}
    */
   setHeaders(headersObj) {
     this._debug("Set additional headers for the class [" +
@@ -915,7 +931,8 @@ class vaccinator {
 
   /**
    * @param {int} serviceProviderId 
-   * @param {string} serviceProviderPwd 
+   * @param {string} serviceProviderPwd
+   * @returns {boolean}
    */
   enableDirectLogin(serviceProviderId, serviceProviderPwd) {
     if (serviceProviderId == 0 || serviceProviderPwd == "") {
@@ -934,8 +951,9 @@ class vaccinator {
    * Saves the given AppId to the local database (using current userName).
    * If a password is known, it will save it encrypted!
    * 
+   * @private
    * @param {string} appId
-   * @returns {promise}
+   * @returns {Promise<any>}
    */
   async _saveAppId(appId) {
     var key = this._getPasswordKey();
@@ -957,7 +975,8 @@ class vaccinator {
    * Returns false in case there is no valid password.
    * Note: This is only used for storing the App-ID in local browser cache.
    * 
-   * @returns {Uint8Array}
+   * @private
+   * @returns {Uint8Array|false}
    */
   _getPasswordKey() {
     if (this.password !== undefined && this.password !== "") {
@@ -974,7 +993,8 @@ class vaccinator {
    * Calculates the SHA256 from the current App-ID.
    * Returns false in case there is no valid App-ID.
    * 
-   * @returns {Uint8Array}
+   * @private
+   * @returns {Uint8Array|false}
    */
   _getKey() {
     if (this.appId !== undefined) {
@@ -991,8 +1011,9 @@ class vaccinator {
    * Generate some random number Array with given
    * byte length. Uses Math.random()!
    * 
+   * @private
    * @param {int} bytes
-   * @returns {Array}
+   * @returns {Array<number>}
    */
   _generateRandom(bytes) {
     return Array.from({ length: bytes }, () => Math.floor(Math.random() * 255));
@@ -1001,8 +1022,9 @@ class vaccinator {
   /**
    * Convert some array to hex encoded string
    * 
+   * @private
    * @param {Array} buffer
-   * @returns {string}
+   * @returns {ArrayBuffer}
    */
   _buf2hex(buffer) { // buffer is an ArrayBuffer
     return aesjs.utils.hex.fromBytes(buffer);
@@ -1011,6 +1033,7 @@ class vaccinator {
   /**
    * Convert some hex encoded string to Uint8Array
    * 
+   * @private
    * @param {string} hexString 
    * @returns {Uint8Array}
    */
@@ -1022,6 +1045,7 @@ class vaccinator {
    * Calculate SHA256 from some given string and
    * return hex encoded hash.
    * 
+   * @private
    * @param {string} someString 
    * @returns {string}
    */
@@ -1040,9 +1064,10 @@ class vaccinator {
    * If addChecksum is provided, it is added like
    * recipt:addChecksum:iv:data (4 parts)
    * 
+   * @private
    * @param {string} data 
-   * @param {array} key 
-   * @param {string} addChecksum (optional)
+   * @param {ArrayBuffer} key 
+   * @param {string?} addChecksum
    * @returns {string} encryptedHEX
    */
   _encrypt(data, key, addChecksum) {
@@ -1073,9 +1098,10 @@ class vaccinator {
    * Currently only supporting "aes-256-cbc" for AES in CBC mode 
    * (key must me 256 bits)
    * 
+   * @private
    * @param {string} data
-   * @param {array} key
-   * @param {string} verifyChecksum (optional)
+   * @param {ArrayBuffer} key
+   * @param {string?} verifyChecksum
    * @returns {string} decryptedText
    */
   _decrypt(data, key, verifyChecksum) {
@@ -1117,6 +1143,7 @@ class vaccinator {
    * Outputs vaccinator class related text to debug console
    * if debugging is activated
    * 
+   * @private
    * @param {string} message 
    */
   _debug(message) {
@@ -1129,9 +1156,10 @@ class vaccinator {
   /**
    * Store data in cache
    * 
+   * @private
    * @param {string} vid 
    * @param {string} vData 
-   * @returns {promise} bool success
+   * @returns {Promise<boolean>} success
    */
   async _storeCache(vid, vData) {
     var that = this;
@@ -1153,8 +1181,9 @@ class vaccinator {
   /**
    * Getdata from cache. Will return null if not found!
    * 
+   * @private
    * @param {string} vid 
-   * @returns {promise} string
+   * @returns {Promise<string|null>}
    */
   async _retrieveCache(vid) {
     var that = this;
@@ -1178,8 +1207,9 @@ class vaccinator {
   /**
    * Removes one given entry from the cache
    * 
-   * @param {array} vids
-   * @returns {promise} boolean
+   * @private
+   * @param {Array<string>} vids
+   * @returns {Promise<boolean>}
    */
   async _removeCache(vids) {
     var that = this;
@@ -1203,8 +1233,9 @@ class vaccinator {
    * Generates the SearchHash from given word. If withRandom is true,
    * zero to 5 random bytes are getting added. See search Plugin documentation.
    * 
+   * @private
    * @param {string} word
-   * @param {boolean} withRandom (optional)
+   * @param {boolean?} withRandom
    * @returns {string}
    */
   _searchHash(word, withRandom) {
@@ -1237,8 +1268,9 @@ class vaccinator {
    * Ued for userNew() and userUpdate() function.
    * Quickly returns empty array if search functionality is not used.
    * 
+   * @private
    * @param {string|object} vData
-   * @returns {array} searchwords
+   * @returns {Array<string>} searchwords
    */
   _getSearchWords(vData) {
     if (this.searchFields.length === 0) {

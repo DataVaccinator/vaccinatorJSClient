@@ -1,3 +1,5 @@
 /local_makefile.mk
 */nbproject/
 *.code-workspace
+*.diff
+*.patch
