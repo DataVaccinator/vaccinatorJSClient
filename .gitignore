@@ -3,3 +3,5 @@
 *.code-workspace
 *.diff
 *.patch
+*copy*
+.DS_Store

@@ -1,1338 +1,1142 @@
-/// <reference path="./vaccinator_api.d.ts" />
+/*	type definitons
+    ======================================================================= */
+/**
+ * @typedef {Object} DvConfig
+ * @property {string} serviceUrl serviceURl is the URL where the API endpoint at the service provider is located. For example: https://service-provider.tld/protocol. All POST calls of the API will be sent to this destination. Please note that "same origin" policy might affect this. In the best case, this is the same domain than your app is running at.
+ * @property {string} userIdentifier user-identifier is some mandatory identifier that the class is using to handle different aspects of saving user related information (like app-id). Also, the class is submitting this information as uid parameter in all protocol calls to the service provider. We suggest to use the name of the user who is using your application (eg email address).
+ * @property {string?} appId app-id is the end users application password for additional encryption. The vaccinator class expects some app-id known. If not submitted or undefined, the class is trying to get it from previous calls (local database). It throws an error if this fails.
+ * @property {string?} password password is used to encrypt the app-id in the local storage database. If not submitted or undefined, the app-id will get stored without any encryption (not recommended). We recommend to submit the password the user entered for log-in to your application or some organization password. By this, the local database will not leak the app-id in case someone is trying to read the browser database.
+ * @property {boolean?} useCache Set to false to disable any local caching. We suggest to not turn caching on/off during a working session.  Default is `true`.
+ * @property {boolean?} debugMode Set debugMode to true in order to activate debug output to browser console. Mainly for finding bugs by the developer of DataVaccinator class but maybe also helpful for you. Default is `false`.
+ * @property {Headers?} headers Define additional header values to send on service requests.
+ * @property {Array<string>?} searchFields Here you submit an array of field names to be used for search function. If your payload is JSON and contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs later using the search function. To disable the feature, submit an empty array or no parameter.
+ * @property {{serviceProviderId:int, serviceProviderPwd:string}?} direktLogin Enable direct login. By this, the protocol is enhanced by adding sid and spwd values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator Vault without any intermediate or proxy instance.
+*/
+/** @typedef {{data: string|Object, status?: string}} VData */
+/**@typedef {'AES-CBC'|'AES-GCM'} EncryptionMode */
 
+
+/*	constants
+    ======================================================================= */
+    const kVaccinatorServiceErrorCode = 0 // error is related to vaccinator service
+    , kVaccinatorInvalidErrorCode = 1 // error is related to bad input parameters
+    , kVaccinatorUnknonwErrorCode = 9 // unknown relation of error
+    , kXhrTimeout = 5 * 1000
+    , kChecksumLength = 2 // Checksum characters (2 characters are 1 Byte in Hex). Used in App-Id.
+    , kVidStringSeperator = " "
+    , kWordSplitRegex = /[\s,\.\+\-\/\\$]+/g
+    , kHex = '0123456789abcdef';
+
+
+/*	DvError class
+    ======================================================================= */
+/** DataVaccinator error class. */
+class DvError extends Error {
+    /**
+     * @param {any} error
+     * @param {number?} code
+     */
+    constructor(error, code) {
+        if(error instanceof Error) {
+            super();
+            this.message = error.message; // assign properties from orign error.
+            this.name = error.name;
+            this.stack = error.stack;
+        } else if(error instanceof Object) {
+            super(JSON.stringify(error));
+        } else { // handles as string
+            super(error);
+        }
+
+        // extend the error class
+        /**
+         * @public
+         * @type {number?}
+         */
+        this.code = code;
+        /**
+         * Holds the original error with type.
+         * @public
+         * @type {Error|string}
+         * @example
+         * if(error instanceof DvError) {
+         *      // The error was thrown inside the vaccinator class.
+         *      if(error.origin instanceof EvalError) {
+         *          // the origin of this error is an EvalError.
+         *      }
+         * }
+         */
+        this.origin = error;
+    }
+}
+
+
+/*	Vaccinator class
+    ======================================================================= */
 /**
  * vaccinatorJsClient class module
+ *
  * @license MIT License
  * @link https://www.datavaccinator.com
  * See github LICENSE file for license text.
  */
-class vaccinator {
-  constructor() {
-    /** @private */
-    this.url = "";           // current class connection to service URL
-    /** @private */
-    this.userName = "";      // currently used userName
-    /** @private */
-    this.password = "";      // currently used password
-    /** @public */
-    this.appId = "";         // currently used App ID
-    /** @public */
-    this.debugging = false;  // if debugging is activated
-    /** @private */
-    this.headers = {};       // optional additional headers to add to fetch requests
-    /** @public */
-    this.useCache = true;    // status for cache usage (initially true)
-    /** @private */
-    this.cache = {};         // cache object (hold in memory)
-    /** @private */
-    this.searchFields = [];  // currently used search fields
-    /** @private */
-    this.sid = 0;            // current service provider id (enableDirectLogin)
-    /** @private */
-    this.spwd = "";          // current service provider password (enableDirectLogin)
-    /** @private */
-    this.db;                 // current database handle
-    /** @public */
-    this.fromCache = [];     // a list of vids retrieved from cache in last get call
-  }
+class Vaccinator {
 
-  /**
-   * @param {string} url 
-   * @param {string} userName
-   * @param {string?} appId
-   * @param {string?} password
-   * @param {boolean?} debugMode
-   * @returns {Promise<boolean>} self
-   */
-  async init(url, userName, appId, password, debugMode) {
-    // initialize the common parameters
-    var that = this;
-    return new Promise(async (resolve, reject) => {
-      if (url === undefined || userName === undefined ||
-        url === "" || userName === "") {
-        reject(new vaccinatorError("init: url and userName parameter are mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (debugMode !== undefined) { that.debugging = debugMode; }
+    /** @param {DvConfig} config */
+     constructor(config) {
+        if(!config) throw EvalError('config can not be null!');
 
-      if (appId !== undefined && appId !== "") {
-        if (!that.validateAppId(appId)) {
-          reject(new vaccinatorError("init: given appId does not validate!",
-            VACCINATOR_INVALID));
-          return;
-        }
-      };
+        /**
+         * Cache config for the {@link changeAppId} function.
+         * @type {DvConfig}
+         * @private */
+        this._config = config;
+        /**
+         * Current class connection to service URL.
+         * @private */
+        this._serviceUrl = config.serviceUrl ?? "";
+        /**
+         * Currently used userName.
+         * @private */
+        this._userIdentifier = config.userIdentifier ?? "";
+        /**
+         * Currently used password.
+         * @private */
+        this._password = config.password ?? "";
+        /**
+         * Currently used App ID.
+         * @private */
+        this._appId = config.appId ?? undefined;
+        /**
+         * If true, this class will print debug to console.
+         * @private */
+        this._debugging = config.debugMode ?? false;
+        /**
+         * Optional additional headers to add to fetch requests.
+         * @private */
+        this._headers = config.headers ?? {};
+        /**
+         * Status for cache usage (initially true).
+         * @private */
+        this._useCache = config.useCache ?? true;
+        /**
+         * Currently used search fields.
+         * @private */
+        this._searchFields = config.searchFields ?? [];
+        /**
+         * Current service provider id (enableDirectLogin).
+         * @private */
+        this._sid = config.direktLogin?.serviceProviderId ?? undefined;
+        /**
+         * Current service provider password (enableDirectLogin).
+         * @private */
+        this._spwd = config.direktLogin?.serviceProviderPwd ?? undefined;
+        /**
+         * Current database handle.
+         * @private
+         * @type {any} */
+        this._db;
+        /**
+         * After you called the {@link get} function, this property contains an array with the vids that were retrieved from the local cache.
+         * If this counts 0 (empty array), all data was requested from the server.
+         * It allows you to verify cache usage.
+         * @public
+         */
+        this.fromCache = [];
 
-      // init database
-      that.db = localforage.createInstance({ name: 'vaccinator-' + userName });
-
-      if (!that.db.supports(localforage.INDEXEDDB)) {
-        reject(new vaccinatorError("init: please use an up to date webbrowser (no IndexedDB supported)",
-          VACCINATOR_UNKNOWN));
-        return;
-      }
-
-      that.url = url;
-      that.userName = userName;
-      that.appId = appId;
-      that.password = password;
-      if (appId !== undefined && appId !== "") {
-        that._saveAppId(appId);
-      } else {
-        that.appId = undefined;
-      }
-
-      // remove possible artefacts from a previous caching bug
-      // this can get removed in Q1/2022
-      await localforage.dropInstance({ name: 'vaccinator database' });
-
-      // restore cache object
-      that._debug("Initialization done");
-      resolve(true);
-    });
-  }
-
-  /**
-   * 
-   * @private
-   * @param {string} vData 
-   * @param {boolean} publishing 
-   * @param {string} password 
-   * @param {int} duration 
-   * @returns {Promise<string>} vid
-   */
-  async _new(vData, publishing, password, duration) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (vData === undefined || vData === "") {
-        reject(new vaccinatorError("new: vData parameter is mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      that.getAppId()
-      .then((aid) => {
-        var operation, payload;
-        if (publishing) {
-          var sha256 = that._hash(password);
-          payload = that._encrypt(vData, that._hex2buf(sha256));
-          operation = "publish";
-        } else {
-          payload = that._encrypt(vData, that._getKey(), aid.substr(-2));
-          operation = "add";
+        // value check
+        if(!this._serviceUrl || !this._userIdentifier) {
+            throw this._onError(new EvalError('init: url and userName parameter are mandatory'), kVaccinatorInvalidErrorCode);
         }
 
-        var request = {
-          op: operation,
-          version: 2,
-          data: payload,
-          uid: that.userName,
-          words: that._getSearchWords(vData)
-        };
-        if (that.sid > 0 && that.spwd !== "") {
-          request.sid = that.sid;
-          request.spwd = that.spwd;
+        // init database
+        this._db = localforage.createInstance({ name: 'vaccinator-' + this._userIdentifier }); // TODO: replace later?
+        if(!this._db.supports(localforage.INDEXEDDB)) {
+            throw this._onError(new EvalError('init: please use an up to date webbrowser (no IndexedDB supported)'), kVaccinatorInvalidErrorCode);
         }
-        if (publishing) {
-          request.duration = duration;
+
+        if(this._appId) {
+            this._saveAppId(this._appId); // called async. But it's ok here, because the app-Id is cached in memory before it is completly written to the storage.
         }
-        var jsonString = JSON.stringify(request);
-        var post = new FormData();
-        post.append("json", jsonString);
-        var params = {
-          method: "POST",
-          body: post,
-          headers: that.headers
-        };
-        that._debug("new: Protocol call: [" + jsonString +
-          "] to url [" + that.url + "]");
-        fetch(that.url, params)
-          .then((response) => {
-            if (response.status !== 200) {
-              reject(new vaccinatorError("new: URL request failed with status " +
-                response.status, VACCINATOR_SERVICE));
-              return;
-            }
-            return response.json();
-          })
-          .then((jsonResult) => {
-            if (jsonResult.status === "OK") {
-              if (publishing) {
-                that._debug("new: Returning new published VID [" + jsonResult.vid + "]");
-                resolve(jsonResult.vid);
-              } else {
-                that._storeCache(jsonResult.vid, vData)
-                  .then(() => {
-                    that._debug("new: Returning new VID [" + jsonResult.vid + "]");
-                    resolve(jsonResult.vid);
-                  });
-              }
-            } else {
-              reject(new vaccinatorError("new: Result was not OK (Code " +
-                jsonResult.code + " - " + jsonResult.desc + ")",
-                VACCINATOR_SERVICE, jsonResult.code));
-              return;
-            }
-          }).catch((e) => {
-            reject(new vaccinatorError("new: Generic issue: [" + e + "]",
-              VACCINATOR_UNKNOWN));
-          });
-      });
-    });
-  }
 
-  /**
-   * @param {string} vData 
-   * @returns {Promise<string>} vid
-   */
-  async new(vData) {
-    // TODO: Enhance memory footprint by submitting vData to _new() by reference
-    return await this._new(vData, false, "", 0);
-  }
+        this._debug(this._debugging && "Initialization done");
+    }
 
-  /**
-   * @param {string} vData 
-   * @returns {Promise<Promise<string>>} vid
-   */
-  async publish(vData, password, duration) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (password === undefined || password === "") {
-        reject(new vaccinatorError("publish: password is not set",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (duration === undefined || duration < 1 || duration > 365) {
-        reject(new vaccinatorError("publish: duration out of range",
-          VACCINATOR_INVALID));
-        return;
-      }
-      // TODO: Enhance memory footprint by submitting vData to _new() by reference
-      resolve(that._new(vData, true, password, duration));
-    });
-  }
+    /**
+     * Wraps all exceptions properly.
+     *
+     * @example <caption>Using as an exceptions wrapper.</caption>
+     * throw _onError('Ups, something went totaly wrong!');
+     *
+     * @example <caption>Pass and process error through nested promises without loosing the stack.</caption>
+     * .then((_, __) => { throw 'Ups, something went totaly wrong here!'; })
+     * .catch(e => reject(this._onError(e)));
+     *
+     * @private
+     * @param {any} error
+     * @param {number?} code
+     * @returns {DvError} the same but modified error like on input.
+     */
+    _onError(error, code) {
+        return new DvError(error, code); // wrap error
+    }
 
-  /**
-   * @param {string} vid
-   * @param {string} vData 
-   * @returns {Promise<string>} vid
-   */
-  async update(vid, vData) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (vid === undefined || vid === "" ||
-        vData === undefined || vData === "") {
-        reject(new vaccinatorError("update: vid and vData parameter are mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      that.getAppId()
-        .then((aid) => {
-          var request = {
-            op: "update",
+    /**
+     * Outputs vaccinator class related text to debug console.
+     * If debugging is activated.
+     *
+     * @private
+     * @param {string} message
+     */
+    _debug(message) {
+        if (!message) { return; }
+        console.debug("VACCINATOR: " + message);
+    }
+
+    /**
+     * Saves the given AppId to the local database (using current userName).
+     * If a password is known, it will save it encrypted!
+     *
+     * @private
+     * @param {string} appId
+     * @returns {Promise<void>}
+     */
+    async _saveAppId(appId) {
+        const key = this._password ? await this._string2cryptoKey(this._password) : null
+            , store = key ? (await this._encrypt(appId, key)) : appId; // save app-ID encrypted if key is not null.
+
+        this._debug(this._debugging && "_saveAppId: Store/update app-id in local storage");
+
+        const dbKey = "appId-" + this._userIdentifier;
+
+        this._appId = appId; // update local
+
+        await this._db.setItem(dbKey, store);
+    }
+
+    /**
+     * Converts a string into an array.
+     * If the parameter is already an array, it's just returning it.
+     *
+     * @private
+     * @param {string|Array} s
+     * @returns {Array<string>}
+     */
+    _string2Array(s) {
+        return Array.isArray(s) ? s : s.split(kVidStringSeperator);
+    }
+
+    /**
+     * Replace default fetch method with a XMLHttpRequest.
+     *
+     * @private
+     * @param {{method: 'POST'|'GET', body: Object}} param0
+     * @returns {Promise<string>} Response string
+     */
+    async _fetch({method, body}) {
+        body = Object.assign({ // apply custom values to default request body
             version: 2,
-            vid: vid,
-            data: that._encrypt(vData, that._getKey(), aid.substr(-2)),
-            uid: that.userName,
-            words: that._getSearchWords(vData)
-          };
-          if (that.sid > 0 && that.spwd !== "") {
-            request.sid = that.sid;
-            request.spwd = that.spwd;
-          }
-          var jsonString = JSON.stringify(request);
-          var post = new FormData();
-          post.append("json", jsonString);
-          var params = {
-            method: "POST",
-            body: post,
-            headers: that.headers
-          };
-          that._debug("update: Protocol call: [" + jsonString +
-            "] to url [" + that.url + "]");
-          fetch(that.url, params)
-            .then((response) => {
-              if (response.status !== 200) {
-                reject(new vaccinatorError("update: URL request failed with status " +
-                  response.status, VACCINATOR_SERVICE));
-                return;
-              }
-              return response.json();
-            }).then((jsonResult) => {
-              if (jsonResult.status === "OK") {
-                that._storeCache(vid, vData).then(() => {
-                  that._debug("update: Returning updated VID [" + vid + "]");
-                  resolve(vid);
-                });
-              } else {
-                reject(new vaccinatorError("update: Result was not OK (Code " +
-                  jsonResult.code + " - " + jsonResult.desc + ")",
-                  VACCINATOR_SERVICE, jsonResult.code));
-                return;
-              }
-            }).catch((e) => {
-              reject(new vaccinatorError("update: Generic issue: [" + e + "]",
-                VACCINATOR_UNKNOWN));
-            });
-        });
-    });
-  }
+            uid: this._userIdentifier,
+            sid: this._sid,
+            spwd: this._spwd,
+        }, body);
+        const data = new FormData()
+            , jsonString = JSON.stringify(body);
+        data.append('json', jsonString);
 
-  /**
-   * @param {string|string[]} vids
-   * @returns {Promise<string>} vids
-   */
-  async delete(vids) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (vids === undefined || vids === "") {
-        reject(new vaccinatorError("delete: vids parameter is mandatory",
-          VACCINATOR_INVALID));
-      }
-      if (!Array.isArray(vids)) { vids = vids.split(" "); }
-  
-      if (vids.length > 500) {
-        // too many vids per request
-        reject(new vaccinatorError("delete: Max 500 vids allowed per request! Please try to chunk your calls.",
-          VACCINATOR_INVALID));
-      }
-      var request = {
-        op: "delete",
-        version: 2,
-        vid: vids.join(" "),
-        uid: that.userName
-      };
-      if (that.sid > 0 && that.spwd !== "") {
-        request.sid = that.sid;
-        request.spwd = that.spwd;
-      }
-      var jsonString = JSON.stringify(request);
-      var post = new FormData();
-      post.append("json", jsonString);
-      var params = {
-        method: "POST",
-        body: post,
-        headers: that.headers
-      };
-      that._debug("delete: Protocol call: [" + jsonString +
-        "] to url [" + that.url + "]");
-      fetch(that.url, params)
-      .then((response) => {
-        if (response.status !== 200) {
-          reject(new vaccinatorError("delete: URL request failed with status " +
-            response.status, VACCINATOR_SERVICE));
-          return;
-        }
-        return response.json();
-      }).then((jsonResult) => {
-        if (jsonResult.status === "OK") {
-          that._debug("delete: Success");
-          // TODO: Do not remove from cache if it was published.
-          return that._removeCache(vids).then(() => {
-            resolve(vids);
-          });
-        } else {
-          reject(new vaccinatorError("delete: Result was not OK (Code " +
-            jsonResult.code + " - " + jsonResult.desc + ")",
-            VACCINATOR_SERVICE, jsonResult.code));
-          return;
-        }
-      }).catch((e) => {
-        reject(new vaccinatorError("delete: Generic issue: [" + e + "]",
-          VACCINATOR_UNKNOWN));
-      });
-    });
-  }
+        this._debug(this._debugging && `Protocol call: [${jsonString}] to url [${this._serviceUrl}]`);
 
-  /**
-   * @param {string|string[]} vids
-   * @returns {Promise<string>}
-   */
-  async get(vids) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-
-      if (vids === undefined || vids === "") {
-        reject(new vaccinatorError("get: vids parameter is mandatory",
-          VACCINATOR_INVALID));
-      }
-      if (!Array.isArray(vids)) { vids = vids.split(" "); }
-
-      // check for the cached vids first
-
-      var uncached = []; // will get the uncached vids
-      var finalResult = new Object(); // compose result
-      var promises = []; // will hold the promises
-      that.fromCache = []; // init
-      vids.map((vid) => {
-        // create an array of promises for cache check (use with Promise.all)
-        promises.push(that._retrieveCache(vid)
-          .then((vData) => {
-            if (vData === null || vData === undefined) {
-              uncached.push(vid);
-              that._debug("get: Add vid [" + vid + "] for getting from server");
-              return;
-            }
-            that.fromCache.push(vid);
-            that._debug("get: Retrieve cached vData for vid [" + vid + "]");
-            var r = { "status": "OK", "data": vData };
-            finalResult[vid] = r;
-            return;
-          }));
-      });
-
-      return Promise.all(promises)
-      .then(() => {
-        // Retrieve missing VIDs from server
-        if (uncached.length > 500) {
-          // too many vids per request
-          reject(new vaccinatorError("get: Max 500 vids allowed per request! Please try to chunk your calls.",
-            VACCINATOR_INVALID));
-          return;
-        }
-
-        var requestVIDs = uncached.join(" ");
-        if (requestVIDs === "") {
-          // nothing to get from vaccinator service (all from cache)
-          resolve(finalResult);
-          return;
-        }
-
-        that.getAppId() // ensure appid is in memory
-        .then((aid) => {
-          var request = {
-            op: "get",
-            version: 2,
-            vid: requestVIDs,
-            uid: that.userName
-          };
-          if (that.sid > 0 && that.spwd !== "") {
-            request.sid = that.sid;
-            request.spwd = that.spwd;
-          }
-          var jsonString = JSON.stringify(request);
-          var post = new FormData();
-          post.append("json", jsonString);
-          var params = {
-            method: "POST",
-            body: post,
-            headers: that.headers
-          };
-          that._debug("get: Protocol call: [" + jsonString +
-            "] to url [" + that.url + "]");
-          fetch(that.url, params)
-          .then((response) => {
-            if (response.status !== 200) {
-              reject(new vaccinatorError("get: URL request failed with status " +
-                response.status, VACCINATOR_SERVICE));
-              return;
-            }
-            return response.json();
-          }).then((jsonResult) => {
-            if (jsonResult.status !== "OK") {
-              reject(new vaccinatorError("get: Result was not OK (Code " +
-                jsonResult.code + " - " + jsonResult.desc + ")",
-                VACCINATOR_SERVICE, jsonResult.code));
-              return;
-            }
-            that._debug("get: Successfully received vData. Processing...");
-            // decrypt vData
-            var data = jsonResult.data;
-            var checksum = that.appId.substr(-2, 2); // current appId checksum
-            var storePromises = [];
-            for (var vid of Object.keys(data)) {
-              if (data[vid]["status"] === "OK") {
-                try {
-                  data[vid]["data"] = that._decrypt(data[vid]["data"],
-                    that._getKey(),
-                    checksum);
-                  // update local cache
-                  storePromises.push(that._storeCache(vid, data[vid]["data"]));
-                } catch (e) {
-                  // very likely the checksum did not match!
-                  console.error("Unable to decrypt vData [" + vid +
-                    "] because used appId seems not the correct one or " +
-                    "some crypto error occured! " +
-                    "Origin error: [" + e.toString() + "]");
-                  // cleanup failing dataset
-                  data[vid]["status"] = "ERROR";
-                  data[vid]["data"] = false;
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open(method, this._serviceUrl, true);
+            xhr.timeout = kXhrTimeout;
+            xhr.ontimeout = xhr.onerror = e => {
+                if(e instanceof XMLHttpRequestProgressEvent) { // XMLHttpRequestProgressEvent has a weird toString output, so we need to log the error directly into the console.
+                    console.error(e);
+                    reject(this._onError(`XMLHttpRequestProgressEvent: Request failed! Inspect previous error log.`));
+                } else {
+                    reject(this._onError(e));
                 }
-              };
-            }
-            // merge cached and service results
-            return Promise.all(storePromises)
-              .then(() => {
-                finalResult = Object.assign({}, data, finalResult);
-                that._debug("get: Finished");
-                resolve(finalResult);
-              });
-          }).catch((e) => {
-            reject(new vaccinatorError("get: Generic issue: [" + e + "]",
-              VACCINATOR_UNKNOWN));
-          });
-        });
-      });
-    });
-  }
-
-  /**
-   * @param {string|string[]} vids
-   * @returns {Promise<string>}
-   */
-  async getPublished(vids, password) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (vids === undefined || vids === "") {
-        reject(new vaccinatorError("getPublished: vids parameter is mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (password === undefined || password === "") {
-        reject(new vaccinatorError("getPublished: password is not set",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (!Array.isArray(vids)) { vids = vids.split(" "); }
-
-      if (vids.length > 500) {
-        // too many vids per request
-        reject(new vaccinatorError("getPublished: Max 500 vids allowed per request! Please try to chunk your calls.",
-          VACCINATOR_INVALID));
-        return;
-      }
-
-      // prepare POST call
-      vids = vids.join(" ");
-
-      that.getAppId()
-      .then((aid) => {
-        var request = {
-          op: "getpublished",
-          version: 2,
-          vid: vids,
-          uid: that.userName
-        };
-        if (that.sid > 0 && that.spwd !== "") {
-          request.sid = that.sid;
-          request.spwd = that.spwd;
-        }
-        var jsonString = JSON.stringify(request);
-        var post = new FormData();
-        post.append("json", jsonString);
-        var params = {
-          method: "POST",
-          body: post,
-          headers: that.headers
-        };
-        that._debug("getPublished: Protocol call: [" + jsonString +
-          "] to url [" + that.url + "]");
-        fetch(that.url, params)
-        .then((response) => {
-          if (response.status !== 200) {
-            reject("getPublished: URL request failed with status " + response.status);
-            return null;
-          }
-          return response.json();
-        }).then((jsonResult) => {
-          if (jsonResult === null) {
-            reject("getPublished: URL request returned no json.");
-            return;
-          }
-          if (jsonResult.status === "OK") {
-            that._debug("getPublished: Successfully received vData. Processing...");
-            // decrypt vData
-            var data = jsonResult.data;
-            var checksum = that.appId.substr(-2, 2); // current appId checksum
-            var pwd = that._hex2buf(that._hash(password)); // prepare password
-            for (var vid of Object.keys(data)) {
-              if (data[vid]["status"] === "OK") {
-                try {
-                  data[vid]["data"] = that._decrypt(data[vid]["data"], pwd);
-                } catch (e) {
-                  // very likely the checksum did not match!
-                  console.error("Unable to decrypt vData [" + vid +
-                    "] because used password seems not the correct one or " +
-                    "some crypto error occured! " +
-                    "Origin error: [" + e.toString() + "]");
-                  // cleanup failing dataset
-                  data[vid]["status"] = "ERROR";
-                  data[vid]["data"] = false;
-                }
-              }
             };
-            resolve(data);
-
-          } else {
-            reject("getPublished: Result was not OK (Code " +
-              jsonResult.code + " - " + jsonResult.desc + ")");
-            return;
-          }
-        });
-      }).catch((e) => {
-        reject(new vaccinatorError("getPublished: Generic issue: [" + e + "]",
-          VACCINATOR_SERVICE));
-      });
-    })
-  }
-
-  /**
-   * @param {string|string[]} vids
-   * @returns {Promise<string>} vids
-   */
-  async wipe(vids) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (vids === undefined || vids === "") {
-        reject(new vaccinatorError("wipe: vids parameter is mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (!Array.isArray(vids)) { vids = vids.split(" "); }
-
-      that._removeCache(vids)
-      .then(() => {
-        return resolve(vids);
-      }).catch((error) => {
-        reject(new vaccinatorError("wipe: Failed wipe [" + error + "]",
-          VACCINATOR_UNKNOWN));
-      });;
-    });
-  }
-
-  /**
-   * @param {string|string[]} vids
-   * @param {string} oldAppId
-   * @param {string} newAppId
-   * @returns {Promise<int>} affectedCount
-   */
-  async changeAppId(vids, oldAppId, newAppId) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (vids === undefined || vids === "") {
-        reject(new vaccinatorError("changeAppId: vids parameter is mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (oldAppId === undefined || oldAppId === "" ||
-        newAppId === undefined || newAppId === "") {
-        reject(new vaccinatorError("changeAppId: oldAppId and newAppId are mandatory",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (oldAppId !== that.appId) {
-        reject(new vaccinatorError("changeAppId: oldAppId must be identical to current appId",
-          VACCINATOR_INVALID));
-        return;
-      }
-      if (!that.validateAppId(newAppId)) {
-        reject(new vaccinatorError("changeAppId: given new appId does not validate!",
-          VACCINATOR_INVALID));
-        return;
-      }
-
-      if (!Array.isArray(vids)) { vids = vids.split(" "); }
-
-      that.get(vids)
-      .then((vDataArray) => {
-        // vDataArray should contain absolut all vData to
-        // re-encrypt
-
-        // create new vaccinator class with new AppId
-        var newVac = new vaccinator();
-        newVac.setHeaders(that.headers); // duplicate headers to use
-        newVac.init(that.url, that.userName, newAppId, that.password, that.debugging)
-        .then(() => {
-            var promises = []; // will hold the promises
-            for (let i = 0; i < vids.length; i++) {
-              // loop all vids and retrieved content
-              let vid = vids[i];
-              if (vDataArray[vid]["status"] === "OK") {
-                that._debug("Store new dataset for [" + vid + "]");
-                promises.push(newVac.update(vid, vDataArray[vid]["data"])
-                  .then((vid) => {
-                    return vid;
-                  })
-                );
-              } else {
-                that._debug("Failed retrieving vData for VID [" + vid + "] (no data?).");
-              }
+            for (const key in this._headers) {
+                if (Object.hasOwnProperty.call(this._headers, key)) {
+                    xhr.setRequestHeader(key, this._headers[key]);
+                }
             }
-            Promise.all(promises)
-            .then((vids) => {
-              newVac = null; // destroy instance
-              // from now on, the new appId must get used:
-              that._saveAppId(newAppId)
-              .then(() => {
-                resolve(vids.length);
-              });
+            xhr.addEventListener('loadend', (_) => {
+                if(xhr.status === 200) {
+                    resolve(xhr.responseText);
+                } else {
+                    reject(this._onError(`_fetch: Status was not OK [${xhr.status} - ${xhr.responseText}]`));
+                }
             });
+            xhr.send(data);
         });
-      });
-    });
-  }
-
-  /**
-   * @param {string?} token
-   * @returns {Promise<boolean>}
-   */
-  async wipeCache(token) {
-    var that = this;
-    return new Promise(async (resolve, reject) => {
-      if (token !== undefined && token !== "") {
-        // need to check if wipe is needed
-        try {
-          var knownToken = await that.db.getItem("payloadToken");
-        
-          if (knownToken === token) {
-            that._debug("wipeCache: No need to wipe cache (known token)");
-            return resolve(false); // no need to wipe
-          }
-          that._wipeCache(token)
-          .then(() => {
-            return resolve(true);
-          });
-        } catch(error) {
-          reject(new vaccinatorError("Failed reading payloadToken [" + error + "]",
-            VACCINATOR_UNKNOWN));
-          return;
-        };
-      }
-      // without token, we're always wiping the cache
-      that._wipeCache()
-      .then(() => {
-        return resolve(true);
-      }).catch((error) => {
-        reject(new vaccinatorError("Failed reading payloadToken [" + error + "]",
-          VACCINATOR_UNKNOWN));
-        return;
-      });
-    });
-  }
-
-  /**
-   * @private
-   * @param {string?} token
-   * @returns {Promise<boolean>}
-   */
-  async _wipeCache(token) {
-    // wipe
-    this._debug("_wipeCache: Wiping cache");
-    var that = this;
-    return new Promise(async (resolve, reject) => {
-      var appId = await that.db.getItem("appId-" + that.userName);
-      
-      await that.db.clear();
-
-      await that.db.setItem("appId-" + that.userName, appId);
-      
-      if (token !== undefined && token !== "") {
-        // need to save payloadToken
-        that.db.setItem("payloadToken", token)
-        .then(() => {
-          that._debug("_wipeCache: New cache token is [" + token + "]");
-          return resolve(true);
-        });
-      }
-      return resolve(true);
-    }).catch((error) => {
-      reject(new vaccinatorError("Failed storing wiped cache [" + error + "]",
-        VACCINATOR_UNKNOWN));
-      return;
-    });
-  }
-
-  /**
-   * @returns {Promise<Array<any>>}
-   */
-  async getServerInfo() {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      var request = {
-        op: "check",
-        version: 2,
-        uid: that.userName
-      };
-      if (that.sid > 0 && that.spwd !== "") {
-        request.sid = that.sid;
-        request.spwd = that.spwd;
-      }
-      var jsonString = JSON.stringify(request);
-
-      var post = new FormData();
-      post.append("json", jsonString);
-      var params = {
-        method: "POST",
-        body: post,
-        headers: that.headers
-      };
-      that._debug("getServerInfo: Protocol call: [" + jsonString +
-        "] to url [" + that.url + "]");
-      fetch(that.url, params)
-        .then((response) => {
-          if (response.status !== 200) {
-            reject(new vaccinatorError("getServerInfo: URL request failed with status " +
-              response.status, VACCINATOR_SERVICE));
-            return;
-          }
-          return response.json();
-        }).then((jsonResult) => {
-          if (jsonResult.status === "OK") {
-            that._debug("getServerInfo: Success");
-            resolve(jsonResult);
-          } else {
-            reject(new vaccinatorError("getServerInfo: Result was not OK (Code " +
-              jsonResult.code + " - " + jsonResult.desc + ")",
-              VACCINATOR_SERVICE, jsonResult.code));
-            return;
-          }
-        }).catch((e) => {
-          reject(new vaccinatorError("getServerInfo: Generic issue: [" + e + "]",
-            VACCINATOR_UNKNOWN));
-        });
-    });
-  }
-
-  /**
-   * @param {string[]?} fields
-   * @returns {boolean}
-   */
-  enableSearchFunction(fields) {
-    if (fields === undefined) {
-      fields = [];
     }
-    this.searchFields = fields;
-    return true;
-  }
 
-  /**
-   * @param {string} searchTerm 
-   * @returns {Promise<Array<string>>} vids array
-   */
-  async search(searchTerm) {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      var term = "";
-      var words = searchTerm.split(/[\s,\.\+\-\/\\$]+/g);
-      for (var w of words) {
-        term += that._searchHash(w, false) + " ";
-      }
-      term = term.trim(); // remove last space
-      if (term === "") {
-        // no valid search term
-        that._debug("search: Empty search does not trigger a call to server!");
-        // resolve promise with empty result array
-        return resolve([]);
-      }
+    /**
+     * Generate some random number Array with given
+     * byte length. Uses Math.random()!
+     *
+     * @private
+     * @param {int} bytes
+     * @returns {Uint8Array}
+     */
+    _generateRandom(bytes) {
+        return window.crypto.getRandomValues(new Uint8Array(bytes));
+    }
 
-      var request = {
-        op: "search",
-        version: 2,
-        words: term,
-        uid: that.userName
-      };
-      if (that.sid > 0 && that.spwd !== "") {
-        request.sid = that.sid;
-        request.spwd = that.spwd;
-      }
-      var jsonString = JSON.stringify(request);
-      var post = new FormData();
-      post.append("json", jsonString);
-      var params = {
-        method: "POST",
-        body: post,
-        headers: that.headers
-      };
-      that._debug("search: Protocol call: [" + jsonString +
-        "] to url [" + that.url + "]");
-      fetch(that.url, params)
-      .then((response) => {
-        if (response.status !== 200) {
-          reject(new vaccinatorError("search: URL request failed with status " +
-            response.status, VACCINATOR_SERVICE));
-          return;
+    /**
+     * Convert some array to hex encoded string
+     *
+     * @private
+     * @param {Uint8Array} buffer
+     * @returns {string}
+     */
+    _buf2hex(buffer) {
+        if(!(buffer instanceof Uint8Array)) {
+            buffer = new Uint8Array(buffer);
         }
-        return response.json();
-      }).then((jsonResult) => {
-        if (jsonResult.status === "OK") {
-          that._debug("search: Success");
-          resolve(jsonResult.vids);
+
+        const A = [] // memory optimizations
+            , l = buffer.length
+            , seperator = '';
+
+        for (let i = 0; i < l; i++) {
+            const v = buffer[i];
+            A.push(kHex[(v & 0xf0) >> 4] + kHex[v & 0x0f]);
+        }
+        return A.join(seperator);
+    }
+
+    /**
+     * Convert some hex encoded string to Uint8Array
+     *
+     * @private
+     * @param {string} hexString
+     * @returns {Uint8Array}
+     */
+    _hex2buf(hexString) {
+        const l = hexString.length // memory optimizations
+            , A = [];
+
+        for (let i = 0; i < l; i += 2) {
+            A.push(parseInt(hexString.substring(i, i + 2), 16));
+        }
+
+        return new Uint8Array(A);
+    }
+
+    /**
+     * Encrypt some string with given key array using
+     * AES in GCM mode (key must me 256 bits).
+     * Recipt is aes-256-gcm.
+     *
+     * Result if Standard:
+     * recipt:iv:data (3 parts)
+     *
+     * If addChecksum is provided, it is added like
+     * recipt:addChecksum:iv:data (4 parts)
+     *
+     * @private
+     * @param {string} data
+     * @param {CryptoKey} key
+     * @param {string?} addChecksum
+     * @returns {Promise<string>} encryptedHEX with recipt.
+     */
+    async _encrypt(data, key, addChecksum) {
+        if(!data || !key) { throw this._onError(new EvalError('Data and key are mandatory!')); }
+
+        const iv = this._generateRandom(16); // 128 bits iv
+        this._debug(this._debugging && `_encrypt: Encrypt with key [${this._buf2hex(key)}] and iv [${this._buf2hex(iv)}]`);
+
+        const cipher = new Uint8Array(await window.crypto.subtle.encrypt({name: 'AES-GCM', iv: iv}, key, Vaccinator._string2buffer(data)));
+
+        return `aes-256-gcm${addChecksum ? `:${addChecksum}` : ''}:${this._buf2hex(iv)}:${this._buf2hex(cipher)}`;
+    }
+
+    /**
+     * Decrypt some encrypted with given key array.
+     * If verifyChecksum is given, it must match the one from
+     * given input data. Otherwise it throws an error.
+     *
+     * Currently only supporting "aes-256-gvm" for AES in GCM mode
+     * (key must me 256 bits).
+     * For legacy the "aes-256-cbc" is still supported but will be removed.
+     *
+     * @private
+     * @param {string} data
+     * @param {CryptoKey} key
+     * @param {string?} verifyChecksum
+     * @returns {Promise<string>} decryptedText
+     */
+    async _decrypt(data, key, verifyChecksum) {
+        if(!data || !key) { throw this._onError(new EvalError('Data and key are mandatory!')); }
+
+        const parts = data.split(":");
+        if(parts.length < 3) {
+            throw this._onError(`_decrypt: invalid data [${data}]`);
+        }
+        const cipherMode = parts[0];
+        if (cipherMode !== "aes-256-cbc" && cipherMode !== "aes-256-gcm") {
+            throw this._onError(`_decrypt: unknown crypto recipt [${parts[0]}]`, kVaccinatorInvalidErrorCode);
+        }
+
+        if (verifyChecksum && verifyChecksum !== parts[1]) {
+            throw this._onError(new EvalError('_decrypt: Checksum does not match!'));
+        }
+
+        let iv;
+
+        if (parts.length === 4) {
+            iv = this._hex2buf(parts[2]);
+            data = this._hex2buf(parts[3]);
         } else {
-          reject(new vaccinatorError("search: Result was not OK (Code " +
-            jsonResult.code + " - " + jsonResult.desc + ")",
-            VACCINATOR_SERVICE, jsonResult.code));
-          return;
+            iv = this._hex2buf(parts[1]);
+            data = this._hex2buf(parts[2]);
         }
-      }).catch((e) => {
-        reject(new vaccinatorError("search: Generic issue: [" + e + "]",
-          VACCINATOR_SERVICE));
-        return;
-      });
-    });
-  }
 
-  /**
-   * @returns {Promise<string>} app-id
-   */
-  async getAppId() {
-    var that = this;
-    return new Promise((resolve, reject) => {
-      if (that.appId !== undefined) {
-        // return known app-id
-        that._debug("getAppId: Return already cached app-id");
-        resolve(that.appId);
-        return;
-      }
-      // try getting it from database
-      that._debug("getAppId: Read app-id from database");
-      var dbKey = "appId-" + that.userName;
-      that.db.getItem(dbKey)
-      .then((value) => {
-        var appId = value;
-        var key = that._getPasswordKey();
-        if (key !== false) {
-          appId = that._decrypt(value, key);
+        this._debug(this._debugging && `_decrypt: Decrypt with key [${this._buf2hex(key)}] and iv [${this._buf2hex(iv)}] and checksum [${verifyChecksum}]`);
+
+        let cipher;
+
+        if(cipherMode == "aes-256-cbc") {
+            cipher = new Uint8Array(await window.crypto.subtle.decrypt({name: 'AES-CBC', iv: iv}, key, data));
+        } else { // gcm instead.
+            cipher = new Uint8Array(await window.crypto.subtle.decrypt({name: 'AES-GCM', iv: iv}, key, data));
         }
-        that._debug("getAppId: Return app-id [" + appId + "]");
-        that.appId = appId; // cache
-        resolve(appId);
-      }).catch((error) => {
-        reject(new vaccinatorError("No AppId saved, you have to supply it during " +
-          "initialization [" + error + "]", VACCINATOR_INVALID));
-        return;
-      });
-    });
-  }
 
-  /**
-   * @param {string} appId 
-   * @returns {boolean}
-   */
-  validateAppId(appId) {
-    if (appId === undefined || appId === "" || appId.length < 4) {
-      return false;
-    }
-    var cs = appId.substr(-2); // CheckSum from given AppId
-    var sha256 = this._hash(appId.substr(0, appId.length - 2)); // hash from AppId - checksum
-    var calcCs = sha256.substr(-2); // calculated checksum
-    return (cs === calcCs); // must be identical
-  }
-
-  /**
-   * @param {Headers} headersObj
-   * @returns {boolean}
-   */
-  setHeaders(headersObj) {
-    this._debug("Set additional headers for the class [" +
-      JSON.stringify(headersObj) + "]");
-    this.headers = headersObj;
-    return true;
-  }
-
-  /**
-   * @param {int} serviceProviderId 
-   * @param {string} serviceProviderPwd
-   * @returns {boolean}
-   */
-  enableDirectLogin(serviceProviderId, serviceProviderPwd) {
-    if (serviceProviderId == 0 || serviceProviderPwd == "") {
-      this.sid = 0;
-      this.spwd = "";
-      this._debug("Disabled direct login");
-      return true;
-    }
-    this.sid = serviceProviderId;
-    this.spwd = serviceProviderPwd;
-    this._debug("Enabled direct login for service provider id [" + serviceProviderId + "]");
-    return true;
-  }
-
-  /**
-   * Saves the given AppId to the local database (using current userName).
-   * If a password is known, it will save it encrypted!
-   * 
-   * @private
-   * @param {string} appId
-   * @returns {Promise<any>}
-   */
-  async _saveAppId(appId) {
-    var key = this._getPasswordKey();
-    var store = "";
-    if (key !== false) {
-      // save encrypted
-      store = this._encrypt(appId, key);
-    } else {
-      store = appId;
-    }
-    this._debug("_saveAppId: Store/update app-id in local storage");
-    var dbKey = "appId-" + this.userName;
-    this.appId = appId; // keep local
-    return this.db.setItem(dbKey, store);
-  }
-
-  /**
-   * Calculates the SHA256 from the known user password.
-   * Returns false in case there is no valid password.
-   * Note: This is only used for storing the App-ID in local browser cache.
-   * 
-   * @private
-   * @returns {Uint8Array|false}
-   */
-  _getPasswordKey() {
-    if (this.password !== undefined && this.password !== "") {
-      this._debug("Calculate sha256 from password");
-      var sha256 = this._hash(this.password);
-      return this._hex2buf(sha256);
-    }
-    this._debug("No password defined (_getPasswordKey -> false)");
-    return false;
-
-  }
-
-  /**
-   * Calculates the SHA256 from the current App-ID.
-   * Returns false in case there is no valid App-ID.
-   * 
-   * @private
-   * @returns {Uint8Array|false}
-   */
-  _getKey() {
-    if (this.appId !== undefined) {
-      this._debug("Calculate sha256 from appId as crypto key");
-      var sha256 = this._hash(this.appId);
-      return this._hex2buf(sha256);
-    }
-    this._debug("No App-ID defined (_getKey -> false)");
-    return false;
-
-  }
-
-  /**
-   * Generate some random number Array with given
-   * byte length. Uses Math.random()!
-   * 
-   * @private
-   * @param {int} bytes
-   * @returns {Array<number>}
-   */
-  _generateRandom(bytes) {
-    return Array.from({ length: bytes }, () => Math.floor(Math.random() * 255));
-  }
-
-  /**
-   * Convert some array to hex encoded string
-   * 
-   * @private
-   * @param {Array} buffer
-   * @returns {ArrayBuffer}
-   */
-  _buf2hex(buffer) { // buffer is an ArrayBuffer
-    return aesjs.utils.hex.fromBytes(buffer);
-  }
-
-  /**
-   * Convert some hex encoded string to Uint8Array
-   * 
-   * @private
-   * @param {string} hexString 
-   * @returns {Uint8Array}
-   */
-  _hex2buf(hexString) {
-    return aesjs.utils.hex.toBytes(hexString);
-  }
-
-  /**
-   * Calculate SHA256 from some given string and
-   * return hex encoded hash.
-   * 
-   * @private
-   * @param {string} someString 
-   * @returns {string}
-   */
-  _hash(someString) {
-    return forge_sha256(someString);
-  }
-
-  /**
-   * Encrypt some string with given key array using
-   * AES in CBC mode (key must me 256 bits).
-   * Recipt is aes-256-cbc
-   * 
-   * Result if Standard:
-   * recipt:iv:data (3 parts)
-   * 
-   * If addChecksum is provided, it is added like
-   * recipt:addChecksum:iv:data (4 parts)
-   * 
-   * @private
-   * @param {string} data 
-   * @param {ArrayBuffer} key 
-   * @param {string?} addChecksum
-   * @returns {string} encryptedHEX
-   */
-  _encrypt(data, key, addChecksum) {
-    var iv = this._generateRandom(16); // 128 bits iv
-    if (this.debugging) {
-      this._debug("_encrypt: Encrypt with key [" + this._buf2hex(key) + "] " +
-        "and iv [" + this._buf2hex(iv) + "]");
+        return Vaccinator._buffer2string(cipher);
     }
 
-    var aesCbc = new aesjs.ModeOfOperation.cbc(key, iv);
-
-    var dataBytes = aesjs.utils.utf8.toBytes(data); // convert to array
-    dataBytes = aesjs.padding.pkcs7.pad(dataBytes); // apply padding
-    var enc = aesCbc.encrypt(dataBytes);
-
-    if (addChecksum !== undefined && addChecksum !== "") {
-      return "aes-256-cbc:" + addChecksum + ":" +
-        this._buf2hex(iv) + ":" + this._buf2hex(enc);
-    }
-    return "aes-256-cbc:" + this._buf2hex(iv) + ":" + this._buf2hex(enc);
-  }
-
-  /**
-   * Decrypt some encrypted with given key array. Returns string.
-   * If verifyChecksum is given, it must match the one from
-   * given input data. Otherwise it throws an error.
-   * 
-   * Currently only supporting "aes-256-cbc" for AES in CBC mode 
-   * (key must me 256 bits)
-   * 
-   * @private
-   * @param {string} data
-   * @param {ArrayBuffer} key
-   * @param {string?} verifyChecksum
-   * @returns {string} decryptedText
-   */
-  _decrypt(data, key, verifyChecksum) {
-    var parts = data.split(":");
-    if (parts[0] !== "aes-256-cbc") {
-      throw (new vaccinatorError("unknown crypto recipt [" + parts[0] + "]",
-        VACCINATOR_UNKNOWN));
-    }
-    var iv = "";
-    var data = "";
-    if (verifyChecksum !== undefined && verifyChecksum !== "") {
-      if (verifyChecksum !== parts[1]) {
-        throw (new vaccinatorError("_decrypt: Checksum does not match!",
-          VACCINATOR_UNKNOWN));
-      }
-    }
-    if (parts.length === 4) {
-      iv = this._hex2buf(parts[2]);
-      data = this._hex2buf(parts[3]);
-    } else {
-      iv = this._hex2buf(parts[1]);
-      data = this._hex2buf(parts[2]);
-    }
-    if (this.debugging) {
-      // do not concat if no debugging is used (save time)
-      this._debug("_decrypt: Decrypt with key [" + this._buf2hex(key) +
-        "] and iv [" + this._buf2hex(iv) + "] and checksum [" +
-        verifyChecksum + "]");
-    }
-    // var dec = new JSChaCha20(password, iv).decrypt(data);
-    var aesCbc = new aesjs.ModeOfOperation.cbc(key, iv);
-    var decryptedBytes = aesCbc.decrypt(data);
-    decryptedBytes = aesjs.padding.pkcs7.strip(decryptedBytes);
-
-    return aesjs.utils.utf8.fromBytes(decryptedBytes);
-  }
-
-  /**
-   * Outputs vaccinator class related text to debug console
-   * if debugging is activated
-   * 
-   * @private
-   * @param {string} message 
-   */
-  _debug(message) {
-    if (!this.debugging) { return; }
-    console.debug("VACCINATOR: " + message);
-  }
-
-  // Cache functions
-
-  /**
-   * Store data in cache
-   * 
-   * @private
-   * @param {string} vid 
-   * @param {string} vData 
-   * @returns {Promise<boolean>} success
-   */
-  async _storeCache(vid, vData) {
-    var that = this;
-    return new Promise(async (resolve, reject) => {
-      if (!that.useCache) {
-        return resolve(true);
-      }
-      that.db.setItem(vid, vData)
-      .then(() => {
-        that._debug("_storeCache: Stored vData for VID " + vid + " in cache");
-        return resolve(true);
-      }).catch((error) => {
-        reject(new vaccinatorError("_storeCache: Failed storing vData (store) [" +
-          error + "]", VACCINATOR_UNKNOWN));
-      });;
-    });
-  }
-
-  /**
-   * Getdata from cache. Will return null if not found!
-   * 
-   * @private
-   * @param {string} vid 
-   * @returns {Promise<string|null>}
-   */
-  async _retrieveCache(vid) {
-    var that = this;
-    return new Promise(async (resolve, reject) => {
-      if (!that.useCache) {
-        return resolve(null);
-      }
-      // use cache object
-      that._debug("_retrieveCache: Retrieve vData for VID " + vid +
-        " from cache");
-      that.db.getItem(vid)
-      .then((vData) => {
-        resolve(vData);
-      }).catch((error) => {
-        reject(new vaccinatorError("_retrieveCache: Failed retrieving vData (store) [" +
-          error + "]", VACCINATOR_UNKNOWN));
-      });
-    });
-  }
-
-  /**
-   * Removes one given entry from the cache
-   * 
-   * @private
-   * @param {Array<string>} vids
-   * @returns {Promise<boolean>}
-   */
-  async _removeCache(vids) {
-    var that = this;
-    return new Promise(async (resolve, reject) => {
-      that.db.removeItems(vids)
-      .then(() => {
-        that._debug("_removeCache: Removed payload for VID(s) " +
-          JSON.stringify(vids) + " from cache");
-        resolve(true);
-      }).catch((error) => {
-        reject(new vaccinatorError("_removeCache: Failed removing payload (remove) [" +
-          error + "]", VACCINATOR_UNKNOWN));
-      });;
-    }).catch((error) => {
-      reject(new vaccinatorError("_removeCache: Failed removing payload (remove) [" +
-        error + "]", VACCINATOR_UNKNOWN));
-    });
-  }
-
-  /**
-   * Generates the SearchHash from given word. If withRandom is true,
-   * zero to 5 random bytes are getting added. See search Plugin documentation.
-   * 
-   * @private
-   * @param {string} word
-   * @param {boolean?} withRandom
-   * @returns {string}
-   */
-  _searchHash(word, withRandom) {
-    if (word === "" || word === undefined) { return ""; }
-    if (withRandom === undefined) {
-      withRandom = false;
-    }
-    var searchHash = "";
-    // init, see docs
-    var h = "f1748e9819664b324ae079a9ef22e33e9014ffce302561b9bf71a37916c1d2a3";
-    var letters = word.split("");
-    for (var l of letters) {
-      h = this._hash(l.toLowerCase() + h + this.appId);
-      searchHash += h.substr(0, 2);
-    }
-    if (withRandom) {
-      var c = Math.floor(Math.random() * 6);
-      // generate random hex bytes only (0-f), so we need double of c
-      for (let i = 0; i < c * 2; ++i) {
-        searchHash += (Math.floor(Math.random() * 16)).toString(16);
-      }
-    }
-    // Limit search hashes to 254 bytes (127 characters) to fit
-    // dataVaccinator database table "search"."WORD" maximum length.
-    return searchHash.substr(0, 254);
-  }
-
-  /**
-   * Generate the array of SearchHash values for DataVaccinator protocol use.
-   * Ued for userNew() and userUpdate() function.
-   * Quickly returns empty array if search functionality is not used.
-   * 
-   * @private
-   * @param {string|object} vData
-   * @returns {Array<string>} searchwords
-   */
-  _getSearchWords(vData) {
-    if (this.searchFields.length === 0) {
-      return [];
-    }
-    if (typeof vData === 'string') {
-      // convert to object
-      vData = JSON.parse(vData);
-    }
-    var ret = [];
-    var words = [];
-    for (var w of this.searchFields) {
-      var value = vData[w];
-      if (value === "") { continue; }
-      // split single words using " ,.+-/\" and linebreak
-      words = value.split(/[\s,\.\+\-\/\\$]+/g);
-      for (var p of words) {
-        if (p !== "" && p !== undefined) {
-          ret.push(this._searchHash(p, true));
+    /**
+     * Returns the app-id as crypto key.
+     *
+     * Returns null in case there is no app-iD.
+     * @private
+     * @param {EncryptionMode?} mode Encryption mode. Default is `AES-GCM`.
+     * @returns {Promise<CryptoKey?>}
+     */
+    async _getCryptoKey(mode = 'AES-GCM') {
+        if (this._appId) {
+            this._debug(this._debugging && "Create key from appId as crypto key");
+            return await this._string2cryptoKey(this._appId, mode);
         }
-      }
+        this._debug(this._debugging && "No App-ID defined (_getKey -> null)");
+        return null;
     }
-    this._debug("_getSearchWords: SearchWords are " + JSON.stringify(ret));
-    return ret;
-  }
 
-  // Compatibility function calls to provide compatibility with
-  // existing applications
-  // May 2020
-  async userNew(vData) { return this.new(vData); }
-  async userUpdate(vid, vData) { return this.update(vid, vData); }
-  async userDelete(vids) { return this.delete(vids); }
-  async userGet(vids) { return this.get(vids); }
-  async userWipe(vids) { return this.wipe(vids); }
+    /**
+     * Returns the passed raw text as crypto key.
+     *
+     * @private
+     * @param {string} text
+     * @param {EncryptionMode?} mode Encryption mode. Default is `AES-GCM`.
+     * @returns {Promise<CryptoKey>}
+     */
+    async _string2cryptoKey(text, mode = 'AES-GCM') {
+        const hash = Vaccinator._hash(text)
+            , buffer = this._hex2buf(hash);
+        return await window.crypto.subtle.importKey('raw', buffer, mode, false, ['encrypt', 'decrypt']);
+    }
 
+    /**
+     * Generates the SearchHash from given word. If withRandom is true,
+     * zero to 5 random bytes are getting added. See search Plugin documentation.
+     *
+     * @private
+     * @param {string} word
+     * @param {boolean} withRandom Default is `false`.
+     * @returns {Promise<string>}
+     */
+    async _searchHash(word, withRandom = false) {
+        if (!word) { return ""; }
+        let searchHash = ""
+            , h = "f1748e9819664b324ae079a9ef22e33e9014ffce302561b9bf71a37916c1d2a3"; // init, see docs
+
+        const letters = word.toLowerCase().split("");
+        for (let l of letters) {
+            h = await Vaccinator.__hash(l + h + this._appId);
+            searchHash += h.slice(0, 2);
+        }
+        if (withRandom) {
+            const c = Math.floor(Math.random() * 6);
+            // generate random hex bytes only (0-f), so we need double of c
+            for (let i = 0; i < c * 2; ++i) {
+                searchHash += (Math.floor(Math.random() * 16)).toString(16);
+            }
+        }
+        // Limit search hashes to 254 characters (127 bytes) to fit
+        // dataVaccinator database table "search"."WORD" maximum length.
+        return searchHash.slice(0, 254);
+    }
+
+    /**
+     * Generate the array of SearchHash values for DataVaccinator protocol use.
+     * Used for {@link new} and {@link update} function.
+     * Quickly returns empty array if search functionality is not used.
+     *
+     * @private
+     * @param {VData} vData
+     * @returns {Promise<Array<string>>} searchwords
+     */
+    async _getSearchWords(vData) {
+        if (!this._searchFields.length) {
+            return [];
+        }
+
+        let data;
+
+        if (!(vData.data instanceof Object)) {
+            // convert to object
+            try {
+                data = JSON.parse(vData.data);
+            } catch (error) {
+                throw this._onError(new EvalError(`vData.data is neither a valid json-string nor a valid json-object! [${error} : ${vData.data}]`), kVaccinatorInvalidErrorCode);
+            }
+        } else {
+            data = vData.data;
+        }
+
+
+        const ret = [];
+        for (let w of this._searchFields) {
+            const value = data[w];
+            if (!value) { continue; }
+            // split single words using " ,.+-/\" and linebreak
+            let words = value.split(kWordSplitRegex);
+            for (let p of words) {
+                if (p) {
+                    ret.push(await this._searchHash(p, true));
+                }
+            }
+        }
+        this._debug(this._debugging && "_getSearchWords: SearchWords are " + JSON.stringify(ret));
+        return ret;
+    }
+
+    /**
+     * Retrieves generic information from the connected DataVaccinator server.
+     *
+     * @returns {Promise<any>}
+     */
+    async getServerInfo() {
+        let result = await this._fetch({method: 'POST', body: {
+            op: "check"
+        }});
+        result = JSON.parse(result);
+        if(result.status === 'OK') {
+            return result;
+        } else {
+            throw this._onError(result, kVaccinatorServiceErrorCode);
+        }
+    }
+
+    /**
+     * Raw new function. Wrapped an called by {@link new} & {@link publish}.
+     *
+     * @private
+     * @param {VData} vData
+     * @param {{password:string, duration:number}?} publish
+     * @returns {Promise<string>} New created vid.
+     */
+    async _new(vData, publish) {
+        if(publish) { // value check
+            if(!publish.password || !publish.duration) {
+                throw this._onError(new EvalError('new: While publishing, the password and the duration have to be set!'), kVaccinatorInvalidErrorCode);
+            }
+            if(!publish.duration || publish.duration < 1 || publish.duration > 365) {
+                throw this._onError(new RangeError('new: The duration is out of rannge!'), kVaccinatorInvalidErrorCode);
+            }
+        }
+
+        if(!vData || !vData.data) {
+            throw this._onError(new EvalError("new: vData parameter is mandatory"), kVaccinatorInvalidErrorCode);
+        }
+
+        const appId = await this.getAppId();
+        let operation, payload;
+        if(publish) {
+            operation = 'publish';
+            payload = await this._encrypt(vData.data, await this._string2cryptoKey(publish.password));
+        } else {
+            operation = 'add';
+            payload = await this._encrypt(vData.data, await this._getCryptoKey(), appId.slice(-kChecksumLength));
+        }
+
+        let result = await this._fetch({method: 'POST', body: {
+            op: operation,
+            data: payload,
+            words: await this._getSearchWords(vData),
+            duration: publish?.duration
+        }});
+        result = JSON.parse(result);
+        if(result.status === "OK") {
+            if(publish) {
+                this._debug(this._debugging && `new: Returning new published VID [${result.vid}]`);
+                return result.vid;
+            } else {
+                await this._storeCache(result.vid, vData);
+                this._debug(this._debugging && `new: Returning new VID [${result.vid}]`);
+                return result.vid;
+            }
+        } else {
+            throw this._onError(result);
+        }
+    }
+
+    /**
+     * Create a new PID entry.
+     *
+     * The vaccinationData is PID in some JSON encoded dataset. It may contain personal information of a person (PID). This is returned later by the {@link get} function.
+     *
+     * @param {VData} vData
+     * @returns {Promise<string>} New created vid.
+     */
+    async new(vData) {
+        return this._new(vData);
+    }
+
+    /**
+     * Returns the app-id that is currently in use.
+     *
+     * If no app-id is available or on storage failure, it throws an error!
+     * @param {boolean} force If true, the key will we be forced to read from database instead from possible cached value. Default is `false`.
+     * @returns {Promise<string>} app-id
+     */
+    async getAppId(force = false) {
+        if(!force && this._appId) {
+            this._debug(this._debugging && "getAppId: Return already cached app-id");
+            return this._appId;
+        }
+
+        this._debug(this._debugging && "getAppId: Read app-id from database");
+
+        let appId = await this._db.getItem('appId-' + this._userIdentifier);
+        if(this._password) {
+            appId = this._decrypt(appId, await this._string2cryptoKey(this._password));
+        }
+        this._debug(this._debugging && "getAppId: Return app-id [" + this._appId + "]");
+        this._appId = appId; // update memory
+        return this._appId;
+    }
+
+    /**
+     * Create a new PID entry for publishing.
+     *
+     * @param {VData} vData
+     * @param {string} password
+     * @param {number} duration
+     * @returns {Promise<string>} New created vid.
+     */
+    async publish(vData, password, duration) {
+        return this._new(vData, {password: password, duration: duration});
+    }
+
+    /**
+     * Update vaccinationData of an existing PID entry.
+     *
+     * @param {string} vid
+     * @param {VData} vData
+     */
+    async update(vid, vData) {
+        if(!vid || !vData || !vData.data) {
+            throw this._onError('update: vid and vData parameter are mandatory', kVaccinatorInvalidErrorCode);
+        }
+
+        const aid = await this.getAppId();
+
+        let result = await this._fetch({method: 'POST', body: {
+            op: "update",
+            vid: vid,
+            data: await this._encrypt(vData.data, await this._getCryptoKey(), aid.slice(-2)),
+            words: await this._getSearchWords(vData)
+        }});
+        result = JSON.parse(result);
+        if(result.status === 'OK') {
+            await this._storeCache(vid, vData);
+            this._debug(this._debugging && `update: Returning updated VID [${vid}]`);
+        } else {
+            throw this._onError(result, kVaccinatorServiceErrorCode);
+        }
+    }
+
+    /**
+     * Delete the given entry.
+     *
+     * @param {Promise<void>}
+     */
+    async delete(vids) {
+        if(!vids) {
+            throw this._onError('delete: vids parameter is mandatory', kVaccinatorInvalidErrorCode);
+        }
+        vids = this._string2Array(vids);
+
+        if (vids.length > 500) {
+            // too many vids per request
+            throw this._onError("delete: Max 500 vids allowed per request! Please try to chunk your calls.", kVaccinatorInvalidErrorCode);
+        }
+
+        let result = await this._fetch({method: 'POST', body: {
+            op: "delete",
+            vid: vids.join(kVidStringSeperator)
+        }});
+        result = JSON.parse(result);
+        if(result.status === 'OK') {
+            this._debug(this._debugging && `deleted vids: ${JSON.stringify(vids)}`);
+            // TODO: Do not remove from cache if it was published.
+            await this._removeCache(vids);
+        } else {
+            throw this._onError(result, kVaccinatorServiceErrorCode);
+        }
+    }
+
+    /**
+     * Retrieve the vaccinationData of one or more given VID.
+     *
+     * The submitted VID is the identifying Vaccination ID (previously returned by {@link new}).
+     * Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
+     * If you want to provide more than 500 VIDs, please call this function in chunks (will trigger an exception otherwise).
+     *
+     * @param {string|string[]} vids
+     * @param {boolean} force If true, the key will we be forced to read from server instead from possible cached value. Default is `false`.
+     * @returns {Promise<Map<string, VData>>}
+     */
+    async get(vids, force = false) {
+        if(!vids) {
+            throw this._onError(new EvalError('get: vids parameter is mandatory"'), kVaccinatorInvalidErrorCode);
+        }
+        const key = await this._getCryptoKey();
+        if(!key) {
+            throw this._onError('get: No key for decryption!');
+        }
+        vids = this._string2Array(vids);
+
+        // check for the cached vids first
+        const uncached = [] // will get the uncached vids
+            , result = new Map() // compose result
+
+        this.fromCache.length = 0; // clear array
+
+        if(!force) {
+            for (const vid of vids) {
+                const vDataContent = await this._retrieveCache(vid);
+                if(!vDataContent) {
+                    uncached.push(vid);
+                    this._debug(this._debugging && `get: Add vid [${vid}] for getting from server`);
+                    continue;
+                }
+                this.fromCache.push(vid);
+                this._debug(this._debugging && `get: Retrieve cached vData for vid [${vid}]`);
+                result.set(vid, { "status": "OK", "data": vDataContent });
+            }
+        }
+
+        if(uncached.length > 500) {
+            throw this._onError('get: Max 500 vids allowed per request! Please try to chunk your calls.', kVaccinatorInvalidErrorCode);
+        }
+
+        if(!force && !uncached.length) { // nothing to get from vaccinator service (all from cache)
+            return result;
+        }
+
+        await this.getAppId(); // ensure appid is in memory
+
+        this._debug(this._debugging && `get: Fetch vDatas from server [${(force ? vids : uncached).join(kVidStringSeperator)}]`);
+
+        let r = await this._fetch({method: 'POST', body: {
+            op: "get",
+            vid: (force ? vids : uncached).join(kVidStringSeperator)
+        }});
+        r = JSON.parse(r);
+        if(r.status === 'OK') {
+            this._debug(this._debugging && `get: Successfully received vData. Processing...`);
+            const data = r.data
+                , checksum = this._appId.slice(-kChecksumLength);
+
+            for (const vid in data) {
+                if (Object.hasOwnProperty.call(data, vid)) {
+                    const e = data[vid];
+
+                    if(e.status == "NOTFOUND") {
+                        result.set(vid, e);
+                        continue;
+                    }
+
+                    try {
+                        e.data = this._decrypt(e.data, key, checksum);
+                        await this._storeCache(vid, e.data); // update local cache
+                    } catch (error) {
+                        console.error(`
+                            Unable to decrypt vData [${vid}] because used appId
+                            seems not the correct one or some crypto error occured!
+                            Origin error: [${error}]`
+                        );
+                        // cleanup failing dataset
+                        e.status = 'ERROR';
+                        e.data = undefined;
+                    } finally {
+                        result.set(vid, e);
+                    }
+                }
+            }
+            return result;
+        } else {
+            throw this._onError(r, kVaccinatorServiceErrorCode);
+        }
+    }
+
+    /**
+     * Retrieve published data from DataVaccinator Vault.
+     *
+     * @param {string|string[]} vids
+     * @param {string} password
+     * @returns {Promise<Map<string, any>>}
+     */
+    async getPublished(vids, password) {
+        if(!vids || !password) {
+            throw this._onError('getPublished: vids and password parameter is mandatory', kVaccinatorInvalidErrorCode);
+        }
+        vids = this._string2Array(vids);
+
+        if(vids.length > 500) {
+            throw this._onError('getPublished: Max 500 vids allowed per request! Please try to chunk your calls.', kVaccinatorInvalidErrorCode);
+        }
+
+        await this.getAppId(); // ensure appid is in memory
+
+        let r = await this._fetch({method: 'POST', body: {
+            op: "getpublished",
+            vid: vids.join(kVidStringSeperator)
+        }});
+
+        r = JSON.parse(r);
+        if(r.status === 'OK') {
+            this._debug(this._debugging && "getPublished: Successfully received vData. Processing...");
+
+            const data = r.data
+                , key = await this._string2cryptoKey(password);
+
+            for (const vid in data) {
+                if (Object.hasOwnProperty.call(data, vid)) {
+                    const e = data[vid];
+
+                    if(e.status == "NOTFOUND") {
+                        continue;
+                    }
+
+                    try {
+                        e.data = this._decrypt(e.data, key);
+                    } catch (error) {
+                        console.error(`
+                            Unable to decrypt vData [${vid}] because used appId
+                            seems not the correct one or some crypto error occured!
+                            Origin error: [${error}]`
+                        );
+                        // cleanup failing dataset
+                        e.status = 'ERROR';
+                        e.data = undefined;
+                    }
+                }
+            }
+            return data;
+        } else {
+            throw this._onError(r, kVaccinatorServiceErrorCode);
+        }
+    }
+
+    /**
+     * Wipe the given PID entry from the local cache.
+     * This does not delete data from DataVaccinator Vault!
+     *
+     * @param {string|string[]} vids
+     */
+    async wipe(vids) {
+        if(!vids) {
+            throw this._onError('wipe: vids parameter is mandatory', kVaccinatorInvalidErrorCode);
+        }
+        vids = this._string2Array(vids);
+
+        await this._removeCache(vids);
+    }
+
+    /**
+     * This is trying to re-encode all stored Vaccination Data (PID) after the app-id has changed.
+     *
+     * The app-id is used to encrypt the payload in identity management.
+     * For whatever reason, if the app-id is changing for a user, then all entries in identity management need to become re-encrypted.
+     * Obviously, this is not to be done on identity management place to protect the data.
+     * So it must be done locally.
+     * @param {string|string[]} vids
+     * @param {string} oldAppId
+     * @param {string} newAppId
+     * @returns {Promise<int>} affectedCount
+     */
+    async changeAppId(vids, oldAppId, newAppId) {
+        if(!vids || !oldAppId || !newAppId) {
+            throw this._onError('changeAppId: vids, oldAppId, newAppId and password parameter are mandatory', kVaccinatorInvalidErrorCode);
+        }
+        if(oldAppId !== this._appId) {
+            throw this._onError('changeAppId: oldAppId must be identical to current appId');
+        }
+        if(!(await Vaccinator.validateAppId(newAppId))) {
+            throw this._onError('changeAppId: given new appId does not validate!');
+        }
+        vids = this._string2Array(vids);
+
+        return new Promise(async (resolve, reject) => {
+
+            // TODO: vids chunking; generic chunking? getpublish, delete, get
+
+            const vDataMap = await this.get(vids) // vDataArray should contain absolut all vData to re-encrypt.
+                , tmpVaccinator = new Vaccinator(Object.assign(this._config, {appId: newAppId})) // copy old config with new app-Id.
+                , promises = [];
+            let affectedCount = 0;
+
+            for (let i = 0; i < vids.length; i++) {
+                const vid = vids[i]
+                    , e = vDataMap.get(vid);
+
+                if(e?.status === "OK") {
+                    this._debug(this._debugging && `Store new dataset for [${vid}]`);
+                    promises.push(
+                        tmpVaccinator.update(vid, e)
+                        .then(() => {affectedCount++;})
+                        .catch(e => {console.error(e);}) // TODO: ist error hier richtig? warn? ignorieren?
+                    );
+                } else {
+                    console.warn(`Failed retrieving vData for VID [${vid}: ${e}] (no data?).`);
+                }
+            }
+
+            Promise.all(promises)
+            .then(async _ => {
+                await this._saveAppId(newAppId);
+                resolve(affectedCount);
+            })
+        });
+
+    }
+
+    /**
+     * Wipe all locally cached information.
+     *
+     * Returns `true` if cache was wiped.
+     * @param {string?} token
+     * @returns {Promise<boolean>}
+     */
+    async wipeCache(token) {
+        if(token) { // need to check if wipe is needed
+            const knownToken = await this._db.getItem("payloadToken");
+            if(knownToken === token) {
+                this._debug(this._debugging && "wipeCache: No need to wipe cache (known token)");
+                return false;
+            }
+        }
+
+        this._debug(this._debugging && "wipeCache: Wiping cache");
+
+        const appIdKey = "appId-" + this._userIdentifier
+            , appId = await this._db.getItem(appIdKey);
+
+        await this._db.clear();
+
+        await this._db.setItem(appIdKey, appId);
+
+        if(token) {
+            // need to save payloadToken
+            await this._db.setItem("payloadToken", token);
+            this._debug(this._debugging && `wipeCache: New cache token is [${token}]`);
+        }
+
+        return true;
+    }
+
+    /**
+     * Search through the DataVaccinator Vault for entries.
+     *
+     * @param {string} searchTerm
+     * @returns {Promise<Array<string>>} vids array
+     */
+    async search(searchTerm) {
+        let term = "";
+        const words = searchTerm.split(kWordSplitRegex);
+        for (let w of words) {
+            term += await this._searchHash(w) + kVidStringSeperator;
+        }
+        term = term.trim();
+        if(!term) {
+            // no valid search term
+            this._debug(this._debugging && "search: Empty search does not trigger a call to server!");
+            // resolve promise with empty result array
+            return [];
+        }
+
+        let result = await this._fetch({method: 'POST', body: {
+            op: "search",
+            words: term
+        }});
+        result = JSON.parse(result);
+        if(result.status === 'OK') {
+            return result.vids;
+        } else {
+            throw this._onError(result, kVaccinatorServiceErrorCode);
+        }
+    }
+
+    // Cache functions
+
+    /**
+     * Store data in cache
+     *
+     * Will throw an error on storage failure!
+     * @private
+     * @param {string} vid
+     * @param {VData} vData
+     * @returns {Promise<void>}
+     */
+    async _storeCache(vid, vData) {
+        if(!this._useCache) return;
+
+        await this._db.setItem(vid, vData.data)
+        this._debug(this._debugging && "_storeCache: Stored vData for VID " + vid + " in cache");
+    }
+
+    /**
+     * Getdata from cache. Will return null if not found!
+     *
+     * @private
+     * @param {string} vid
+     * @returns {Promise<string|null>}
+     */
+    async _retrieveCache(vid) {
+        if(!this._useCache) {
+            return null;
+        }
+
+        this._debug(this._debugging && `_retrieveCache: Retrieve vData for VID ${vid} from cache`);
+
+        return await this._db.getItem(vid);
+    }
+
+    /**
+     * Removes one given entry from the cache.
+     *
+     * Will throw an error on storage failure!
+     * @private
+     * @param {Array<string>} vids
+     * @returns {Promise<void>}
+     */
+    async _removeCache(vids) {
+        await this._db.removeItems(vids);
+        this._debug(this._debugging && `_removeCache: Removed payload for VID(s) [${JSON.stringify(vids)}] from cache`);
+    }
 }
 
-const VACCINATOR_SERVICE = 0; // error is related to vaccinator service
-const VACCINATOR_INVALID = 1; // error is related to bad input parameters
-const VACCINATOR_UNKNOWN = 9; // unknown relation of error
 
-/** vaccinatorError error class (extends Error())
- * 
- * @param {string} message 
- * @param {int} reason VACCINATOR_n
- * @param {int} vaccinatorCode
- * @returns {object}
+/*	Vaccinator static methods
+    ======================================================================= */
+/**
+ * Convert some string into Uint8Array.
+ *
+ * @private
+ * @static
+ * @param {string} text
+ * @returns {Uint8Array} utf-8 encoded
  */
-function vaccinatorError(message, reason, vaccinatorCode) {
-  var err = new Error(message);
-  Object.setPrototypeOf(err, vaccinatorError.prototype);
-
-  err.reason = reason;
-  err.vaccinatorCode = vaccinatorCode;
-
-  return err;
+Vaccinator._string2buffer = (text) => {
+    return new TextEncoder().encode(text);
 }
 
-vaccinatorError.prototype = Object.create(
-  Error.prototype,
-  { name: { value: 'vaccinatorError', enumerable: false } }
-);
+/**
+ * Convert some buffer into utf-8 encoded string.
+ *
+ * @private
+ * @static
+ * @param {Uint8Array} bytes
+ * @returns {string} utf-8 encoded
+ */
+Vaccinator._buffer2string = (bytes) => {
+    let result = [], i = 0;
+
+    while (i < bytes.length) {
+        let c = bytes[i];
+
+        if (c < 128) {
+            result.push(String.fromCharCode(c));
+            i++;
+        } else if (c > 191 && c < 224) {
+            result.push(String.fromCharCode(((c & 0x1f) << 6) | (bytes[i + 1] & 0x3f)));
+            i += 2;
+        } else {
+            result.push(String.fromCharCode(((c & 0x0f) << 12) | ((bytes[i + 1] & 0x3f) << 6) | (bytes[i + 2] & 0x3f)));
+            i += 3;
+        }
+    }
+
+    return result.join('');
+}
+
+/**
+ * Calculate SHA256 from some given string and
+ * return hex encoded hash.
+ *
+ * @private
+ * @static
+ * @param {string} text
+ * @returns {string} hex encoded
+ * @deprecated use {@link Vaccinator.__hash} instead.
+ */
+Vaccinator._hash = (text) => {
+    return forge_sha256(text);
+}
+
+/**
+ * Calculate SHA256 from some given string and
+ * return hex encoded hash.
+ *
+ * @private
+ * @static
+ * @param {string} text
+ * @returns {Promise<string>} hex encoded
+ */
+Vaccinator.__hash = async (text) => {
+    const shaBuffer = new Uint8Array(await window.crypto.subtle.digest('SHA-256', Vaccinator._string2buffer(text)));
+
+    const pad = '0' // memory optimizations
+        , seperator = ''
+        , A = []
+        , l = shaBuffer.length;
+
+    for (let i = 0; i < l; i++) {
+        A.push(shaBuffer[i].toString(16).padStart(2, pad));
+    }
+    return A.join(seperator);
+}
+
+/**
+ * Validates the checksum of the given app-id.
+ *
+ * @public
+ * @static
+ * @param {string} appId
+ * @returns {Promise<boolean>}
+ */
+Vaccinator.validateAppId = async (appId) => {
+    if (!appId || appId.length < 4) {
+        return false;
+    }
+
+    const cs = appId.slice(-2) // CheckSum from given AppId
+        , cipher = await Vaccinator.__hash(appId.slice(0, appId.length - 2)) // hash from AppId - checksum
+        , calcCs = cipher.slice(-2); // calculated checksum
+    return (cs === calcCs); // must be identical
+}
+
+
+
+
+
 
 
 // -----------------------

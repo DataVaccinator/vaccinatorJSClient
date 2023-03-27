@@ -156,7 +156,7 @@ var status = result[vid]['status'];
 |Return value:
 |(promise) (array) VID(s)
 |Info:
-|The *VID* is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. 
+|The *VID* is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
 
 If you want to provide more than 500 VIDs, please call this function in chunks (will trigger an exception otherwise).
 |=======
@@ -166,7 +166,7 @@ If you want to provide more than 500 VIDs, please call this function in chunks (
 [cols="1,4"]
 |=======
 |Description:
-|Wipe the given PID entry from the local cache. 
+|Wipe the given PID entry from the local cache.
 
 This does not delete data from DataVaccinator Vault!
 |Parameters:
@@ -174,7 +174,7 @@ This does not delete data from DataVaccinator Vault!
 |Return value:
 |(promise) (array) VID(s)
 |Info:
-|The *VID* is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. 
+|The *VID* is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
 
 Please note that, if the *VID* is requested after this was called, the system will request it again from the DataVaccinator Vault and will update the cache. A possible use case is, if you know that the local cache is outdated for this *VID*, you can force the system to refresh its cache by wiping the PID with this function.
 |=======
@@ -478,3 +478,28 @@ Error with no further specification.
 In general, if you get an error of reason *VACCINATOR_SERVICE*, you have to validate the vaccinatorCode and maybe inform the user about some issues that may go away in some time (try later).
 
 If you get some *VACCINATOR_INVALID*, you very like passed in some parameter or values that do either not fit to the rules or are invalid or of wrong type.
+
+
+== Migration from v1.x to v2.0
+
+v2.0 is a major improvement of the origin vaccinator class.
+
+create an instance with capital V: new Vaccinator();
+
+The functions <<init>>, <<enableDirectLogin>>, <<setHeaders>>, <<enableSearchFunction>> were *removed* an the parameters moved into the constructor as one config parameter. You can use intellisense.
+
+The function <<getAppId>> has now a "force" parameter.
+
+The function <<validateAppId>> is now deprecated. Use the static method Vaccinator.validateAppId instead.
+
+The property <<useCache>>, <<debugging>> is now private, because it can be set in the constructor.
+
+The functions <<update>>, <<delete>>, <<wipe>> have no return value anymore. It had returned the same vid(s) only.
+
+The legacy functions <<userNew>>, <<userUpdate>>, <<userDelete>>, <<userGet>> and <<userWipe>> removed.
+
+The function <<get>> will now return a Map<string, VData>. Attention! Beside of the benefits of a Map, the Map values can not become accessed using the bracket notation "map['key']". It is neccessary to use the [Map.get] method or the [Map.size] instead of [length] property.
+
+Because the <<validateAppId>> is now an async function, the app-Id can not be validated at the constructor anymore. Please check the app-Id with the [Vaccinator.validateAppId] function bevore passing it to the constructor!
+
+The "aes.js"-script is not necessary anymore and should be omitted in the html head declaration.
