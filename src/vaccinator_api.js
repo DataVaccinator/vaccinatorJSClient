@@ -1,4 +1,4 @@
-/// <reference path="./vaccinator_api.d.ts" />
+/// <reference path="../vaccinator_api.d.ts" />
 
 /**
  * vaccinatorJsClient class module
