@@ -435,9 +435,42 @@ class Vaccinator {
      * @returns {Promise<CryptoKey>}
      */
     async _string2cryptoKey(text, mode = 'AES-GCM') {
-        const hash = Vaccinator._hash(text)
+        const hash = await Vaccinator.__hash(text)
             , buffer = this._hex2buf(hash);
         return await window.crypto.subtle.importKey('raw', buffer, mode, false, ['encrypt', 'decrypt']);
+    }
+
+    /**
+     * Chunks the given Array with the optional size.
+     *
+     * Values of the origin Array are passed by reference.
+     *
+     * @example
+     * const chunks = this._chunks([...]);
+     * for(const chunk of chunks) {
+     *      // do some stuff...
+     * }
+     *
+     * @private
+     * @param {Array} A
+     * @param {number} size Default: `500`
+     * @returns {any[][]} Iterable result.
+     */
+    _chunk(A, size = 500) {
+        const result = []
+            , totalLength = A.length
+            , chunks = totalLength / size
+            , l = (totalLength % size) != 0 ? Math.round(chunks + .5) : chunks;
+
+        for (let i = 0; i < l; i++) {
+            const _A = []
+                , ll = Math.min(size * (i + 1), totalLength);
+            for (let j = i * size; j < ll; j++) {
+                _A.push(A[j]);
+            }
+            result.push(_A);
+        }
+        return result;
     }
 
     /**
@@ -500,14 +533,13 @@ class Vaccinator {
 
 
         const ret = [];
-        for (let w of this._searchFields) {
-            const value = data[w];
+        for (let searchfield of this._searchFields) {
+            const value = data[searchfield];
             if (!value) { continue; }
-            // split single words using " ,.+-/\" and linebreak
             let words = value.split(kWordSplitRegex);
-            for (let p of words) {
-                if (p) {
-                    ret.push(await this._searchHash(p, true));
+            for (let word of words) {
+                if (word) {
+                    ret.push(await this._searchHash(word, true));
                 }
             }
         }
@@ -672,22 +704,20 @@ class Vaccinator {
         }
         vids = this._string2Array(vids);
 
-        if (vids.length > 500) {
-            // too many vids per request
-            throw this._onError("delete: Max 500 vids allowed per request! Please try to chunk your calls.", kVaccinatorInvalidErrorCode);
-        }
-
-        let result = await this._fetch({method: 'POST', body: {
-            op: "delete",
-            vid: vids.join(kVidStringSeperator)
-        }});
-        result = JSON.parse(result);
-        if(result.status === 'OK') {
-            this._debug(this._debugging && `deleted vids: ${JSON.stringify(vids)}`);
-            // TODO: Do not remove from cache if it was published.
-            await this._removeCache(vids);
-        } else {
-            throw this._onError(result, kVaccinatorServiceErrorCode);
+        const chunks = this._chunk(vids);
+        for (const c of chunks) {
+            let result = await this._fetch({method: 'POST', body: {
+                op: "delete",
+                vid: c.join(kVidStringSeperator)
+            }});
+            result = JSON.parse(result);
+            if(result.status === 'OK') {
+                this._debug(this._debugging && `deleted vids: ${JSON.stringify(c)}`);
+                // TODO: Do not remove from cache if it was published.
+                await this._removeCache(c);
+            } else {
+                throw this._onError(result, kVaccinatorServiceErrorCode);
+            }
         }
     }
 
@@ -696,7 +726,6 @@ class Vaccinator {
      *
      * The submitted VID is the identifying Vaccination ID (previously returned by {@link new}).
      * Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
-     * If you want to provide more than 500 VIDs, please call this function in chunks (will trigger an exception otherwise).
      *
      * @param {string|string[]} vids
      * @param {boolean} force If true, the key will we be forced to read from server instead from possible cached value. Default is `false`.
@@ -732,10 +761,6 @@ class Vaccinator {
             }
         }
 
-        if(uncached.length > 500) {
-            throw this._onError('get: Max 500 vids allowed per request! Please try to chunk your calls.', kVaccinatorInvalidErrorCode);
-        }
-
         if(!force && !uncached.length) { // nothing to get from vaccinator service (all from cache)
             return result;
         }
@@ -744,46 +769,49 @@ class Vaccinator {
 
         this._debug(this._debugging && `get: Fetch vDatas from server [${(force ? vids : uncached).join(kVidStringSeperator)}]`);
 
-        let r = await this._fetch({method: 'POST', body: {
-            op: "get",
-            vid: (force ? vids : uncached).join(kVidStringSeperator)
-        }});
-        r = JSON.parse(r);
-        if(r.status === 'OK') {
-            this._debug(this._debugging && `get: Successfully received vData. Processing...`);
-            const data = r.data
-                , checksum = this._appId.slice(-kChecksumLength);
+        const chunks = this._chunk((force ? vids : uncached));
+        for (const c of chunks) {
+            let r = await this._fetch({method: 'POST', body: {
+                op: "get",
+                vid: c.join(kVidStringSeperator)
+            }});
+            r = JSON.parse(r);
+            if(r.status === 'OK') {
+                this._debug(this._debugging && `get: Successfully received vData. Processing...`);
+                const data = r.data
+                    , checksum = this._appId.slice(-kChecksumLength);
 
-            for (const vid in data) {
-                if (Object.hasOwnProperty.call(data, vid)) {
-                    const e = data[vid];
+                for (const vid in data) {
+                    if (Object.hasOwnProperty.call(data, vid)) {
+                        const e = data[vid];
 
-                    if(e.status == "NOTFOUND") {
-                        result.set(vid, e);
-                        continue;
-                    }
+                        if(e.status == "NOTFOUND") {
+                            result.set(vid, e);
+                            continue;
+                        }
 
-                    try {
-                        e.data = this._decrypt(e.data, key, checksum);
-                        await this._storeCache(vid, e.data); // update local cache
-                    } catch (error) {
-                        console.error(`
-                            Unable to decrypt vData [${vid}] because used appId
-                            seems not the correct one or some crypto error occured!
-                            Origin error: [${error}]`
-                        );
-                        // cleanup failing dataset
-                        e.status = 'ERROR';
-                        e.data = undefined;
-                    } finally {
-                        result.set(vid, e);
+                        try {
+                            e.data = this._decrypt(e.data, key, checksum);
+                            await this._storeCache(vid, e.data); // update local cache
+                        } catch (error) {
+                            console.error(`
+                                Unable to decrypt vData [${vid}] because used appId
+                                seems not the correct one or some crypto error occured!
+                                Origin error: [${error}]`
+                            );
+                            // cleanup failing dataset
+                            e.status = 'ERROR';
+                            e.data = undefined;
+                        } finally {
+                            result.set(vid, e);
+                        }
                     }
                 }
+            } else {
+                throw this._onError(r, kVaccinatorServiceErrorCode);
             }
-            return result;
-        } else {
-            throw this._onError(r, kVaccinatorServiceErrorCode);
         }
+        return result;
     }
 
     /**
@@ -799,50 +827,49 @@ class Vaccinator {
         }
         vids = this._string2Array(vids);
 
-        if(vids.length > 500) {
-            throw this._onError('getPublished: Max 500 vids allowed per request! Please try to chunk your calls.', kVaccinatorInvalidErrorCode);
-        }
-
         await this.getAppId(); // ensure appid is in memory
 
-        let r = await this._fetch({method: 'POST', body: {
-            op: "getpublished",
-            vid: vids.join(kVidStringSeperator)
-        }});
+        const chunks = this._chunk(vids);
+        for (const c of chunks) {
+            let r = await this._fetch({method: 'POST', body: {
+                op: "getpublished",
+                vid: c.join(kVidStringSeperator)
+            }});
 
-        r = JSON.parse(r);
-        if(r.status === 'OK') {
-            this._debug(this._debugging && "getPublished: Successfully received vData. Processing...");
+            r = JSON.parse(r);
+            if(r.status === 'OK') {
+                this._debug(this._debugging && "getPublished: Successfully received vData. Processing...");
 
-            const data = r.data
-                , key = await this._string2cryptoKey(password);
+                const data = r.data
+                    , key = await this._string2cryptoKey(password);
 
-            for (const vid in data) {
-                if (Object.hasOwnProperty.call(data, vid)) {
-                    const e = data[vid];
+                for (const vid in data) {
+                    if (Object.hasOwnProperty.call(data, vid)) {
+                        const e = data[vid];
 
-                    if(e.status == "NOTFOUND") {
-                        continue;
-                    }
+                        if(e.status == "NOTFOUND") {
+                            continue;
+                        }
 
-                    try {
-                        e.data = this._decrypt(e.data, key);
-                    } catch (error) {
-                        console.error(`
-                            Unable to decrypt vData [${vid}] because used appId
-                            seems not the correct one or some crypto error occured!
-                            Origin error: [${error}]`
-                        );
-                        // cleanup failing dataset
-                        e.status = 'ERROR';
-                        e.data = undefined;
+                        try {
+                            e.data = this._decrypt(e.data, key);
+                        } catch (error) {
+                            console.error(`
+                                Unable to decrypt vData [${vid}] because used appId
+                                seems not the correct one or some crypto error occured!
+                                Origin error: [${error}]`
+                            );
+                            // cleanup failing dataset
+                            e.status = 'ERROR';
+                            e.data = undefined;
+                        }
                     }
                 }
+            } else {
+                throw this._onError(r, kVaccinatorServiceErrorCode);
             }
-            return data;
-        } else {
-            throw this._onError(r, kVaccinatorServiceErrorCode);
         }
+        return data;
     }
 
     /**
@@ -886,8 +913,6 @@ class Vaccinator {
 
         return new Promise(async (resolve, reject) => {
 
-            // TODO: vids chunking; generic chunking? getpublish, delete, get
-
             const vDataMap = await this.get(vids) // vDataArray should contain absolut all vData to re-encrypt.
                 , tmpVaccinator = new Vaccinator(Object.assign(this._config, {appId: newAppId})) // copy old config with new app-Id.
                 , promises = [];
@@ -902,7 +927,6 @@ class Vaccinator {
                     promises.push(
                         tmpVaccinator.update(vid, e)
                         .then(() => {affectedCount++;})
-                        .catch(e => {console.error(e);}) // TODO: ist error hier richtig? warn? ignorieren?
                     );
                 } else {
                     console.warn(`Failed retrieving vData for VID [${vid}: ${e}] (no data?).`);

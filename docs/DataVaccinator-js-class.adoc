@@ -500,6 +500,8 @@ The legacy functions <<userNew>>, <<userUpdate>>, <<userDelete>>, <<userGet>> an
 
 The function <<get>> will now return a Map<string, VData>. Attention! Beside of the benefits of a Map, the Map values can not become accessed using the bracket notation "map['key']". It is neccessary to use the [Map.get] method or the [Map.size] instead of [length] property.
 
-Because the <<validateAppId>> is now an async function, the app-Id can not be validated at the constructor anymore. Please check the app-Id with the [Vaccinator.validateAppId] function bevore passing it to the constructor!
+Because the <<validateAppId>> is now an async function, the app-Id can not be validated at the constructor anymore. Please check the app-Id with the [Vaccinator.validateAppId] function before passing it to the constructor!
 
-The "aes.js"-script is not necessary anymore and should be omitted in the html head declaration.
+The "aes.js" & "forge-sha256.min.js"-script is not necessary anymore and should be omitted in the html head declaration.
+
+The constraint of max 500 vids per request for <<get>>, <<delete>> and <<getPublished>> is obsolete. Passed vids will become chunked now internaly to fit DataVaccinator vault constraints.
