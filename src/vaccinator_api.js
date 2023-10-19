@@ -83,7 +83,7 @@ class DvError extends Error {
 class Vaccinator {
 
     /** @param {DvConfig} config */
-     constructor(config) {
+    constructor(config) {
         if(!config) throw EvalError('config can not be null!');
 
         /**
@@ -149,11 +149,14 @@ class Vaccinator {
             throw this._onError(new EvalError('init: url and userName parameter are mandatory'), kVaccinatorInvalidErrorCode);
         }
 
+        // async functions
         // init database
-        this._db = localforage.createInstance({ name: 'vaccinator-' + this._userIdentifier }); // TODO: replace later?
-        if(!this._db.supports(localforage.INDEXEDDB)) {
-            throw this._onError(new EvalError('init: please use an up to date webbrowser (no IndexedDB supported)'), kVaccinatorInvalidErrorCode);
-        }
+        DB.createInstance('vaccinator-' + this._userIdentifier).then(db => {
+            this._db = db;
+
+
+            await Vaccinator.createInstance({});
+        });
 
         if(this._appId) {
             this._saveAppId(this._appId); // called async. But it's ok here, because the app-Id is cached in memory before it is completly written to the storage.
@@ -276,7 +279,7 @@ class Vaccinator {
 
     /**
      * Generate some random number Array with given
-     * byte length. Uses Math.random()!
+     * byte length.
      *
      * @private
      * @param {int} bytes
@@ -1159,166 +1162,189 @@ Vaccinator.validateAppId = async (appId) => {
 
 
 
+/*	DB
+    ======================================================================= */
+const kVDataStoreName = 'vdata';
+
+/**
+ * Database helper class to handle local storage via `indexedDB`.
+ *
+ * Don't create a new `DB` instance by your self. Use the {@link DB.createInstance} method instead and use {@link DB.instance} at runtime. See @example.
+ *
+ * @example <caption>Creating an instance.</caption>
+ * const db = await DB.createInstance();
+ * @example <caption>Using an instance at runtime.</caption>
+ * const db = await DB.instance;
+ */
+class DB {
+    /**
+     * @type {DB}
+     * @private */
+    static _instance = undefined;
+    /**
+     * @type {string}
+     * @private */
+    static _dbName = undefined;
+
+    /**
+     * @param {IDBDatabase} db
+     * @private */
+    constructor(db) {
+        /** @private */
+        this._db = db;
+    }
+
+    /**
+     * Creates an `DB` instance.
+     * @param {string} dbName Name of the storage.
+     * @returns {Promise<DB>}
+     */
+    static async createInstance(dbName) {
+        DB._dbName = dbName;
+        return DB.instance;
+    }
+
+    /**
+     * Creates or returns the current instance of `DB`.
+     *
+     * This method is idempotent. Multiple calls will return the same reference.
+     *
+     * @returns {Promise<DB>}
+     */
+    static get instance() {
+        if(this._instance) return this._instance;
+
+        if(!indexedDB) {
+            throw 'IndexedDB is not supported! Please check browser version or contact us.';
+        }
+        if(!DB._dbName) {
+            throw 'DB Error: Call the `createInstance` method first!';
+        }
+
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB._dbName, 1);
+            request.onupgradeneeded = (event) => {
+                const db = request.result;
+                // create tables
+                if(!db.objectStoreNames.contains(kVDataStoreName)) {
+                    db.createObjectStore(kVDataStoreName);
+                }
+            };
+            request.onerror = () => { reject(request.error); };
+            request.onblocked = () => { reject(request.error || 'DB is blocked!'); };
+            request.onsuccess = () => {
+                const db = request.result;
+
+                db.onversionchange = (event) => {
+                    if(!!event.newVersion) {
+                        console.warn(event);
+                        db.close();
+                        alert('Database is outdated on this tab, please reload the page!');
+                    }
+                };
+
+                this._instance = new DB(db)
+                resolve(this._instance);
+            };
+        });
+    }
 
 
+    /**
+     * Pipes the native `IDBOpenDBRequest` into a `Promise` and wraps it with the default success and error handlers.
+     * Only needed for the native `indexedBD` API calls like `transaction`, for example.
+     *
+     * @example <caption>Used for transactions.</caption>
+     * const transaction = db.transaction('table') // returns native `indexedDB` API
+     *     , store = transaction.objectStore('table');
+     * await DB.pipe(store.add('value', 'key'));
+     *
+     * @param {IDBOpenDBRequest} request
+     * @returns {Promise<any>}
+     */
+    static async pipe(request) {
+        return new Promise((resolve, reject) => {
+            request.onerror = () => { reject(request.error); }
+            request.onsuccess = () => { resolve(request.result); }
+        });
+    }
 
+    /**
+     * Returns a native `IDBTransaction`.
+     *
+     * Hint: Use the static {@link DB.pipe} function to handle native calls like `Promise`s.
+     *
+     * Warning I: Transactions are auto-commited when the microtasks queue is empty an the current code finishes. Do not use async operations between!
+     *
+     * Warning II: Only the native {@link IDBTransaction.oncomplete} guarantees that the transaction is saved as a whole. See @example.
+     *
+     * @example
+     * const transaction = db.transaction("table", "readwrite");
+     *
+     * // ...perform operations...
+     *
+     * transaction.oncomplete = function() {
+     *      // Transaction is complete
+     * };
+     *
+     * @param {string | Iterable<string>} names
+     * @param {'readonly'|'readwrite'?} mode Default is `"readonly"`
+     * @returns
+     */
+    transaction(names, mode = 'readonly') {
+        return this._db.transaction(names, mode);
+    }
 
-// -----------------------
-// LOCALFORAGE PLUGIN
-// Download from here:
-// https://github.com/localForage/localForage-removeItems/blob/master/dist/localforage-removeitems.js
-// -----------------------
+    /**
+     * Returns the entry from the database.
+     *
+     * @param {string} key
+     * @returns {Promise<any>}
+     */
+    async get(key) {
+        const t = this.transaction(kVDataStoreName, 'readonly')
+            , store = t.objectStore(kVDataStoreName);
+        return DB.pipe(store.get(key));
+    }
 
-(function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('localforage')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'localforage'], factory) :
-  (factory((global.localforageRemoveItems = global.localforageRemoveItems || {}),global.localforage));
-}(this, (function (exports,localforage) { 'use strict';
+    /**
+     * Adds an entry to the database. If there’s already a value with the same key, it will be replaced.
+     *
+     * @param {string} key
+     * @param {any} value
+     * @returns {Promise<void>}
+     */
+    async put(key, value) {
+        const t = this.transaction(kVDataStoreName, 'readwrite')
+            , store = t.objectStore(kVDataStoreName);
+        return DB.pipe(store.put(value, key));
+    }
 
-localforage = 'default' in localforage ? localforage['default'] : localforage;
+    /**
+     * Removes the entry from the database.
+     *
+     * @param {string} key
+     * @returns {Promise<void>}
+     */
+    async remove(key) {
+        const t = this.transaction(kVDataStoreName, 'readwrite')
+            , store = t.objectStore(kVDataStoreName);
+        return DB.pipe(store.delete(key));
+    }
 
-function executeCallback(promise, callback) {
-  if (callback) {
-      promise.then(function (result) {
-          callback(null, result);
-      }, function (error) {
-          callback(error);
-      });
-  }
-  return promise;
+    /**
+     * Removes all entries from the database.
+     *
+     * @returns {Promise<void>}
+     */
+    async clear() {
+        const t = this.transaction(kVDataStoreName, 'readwrite')
+            , store = t.objectStore(kVDataStoreName);
+        return DB.pipe(store.clear());
+    }
+
+    /** @returns {Promise<void>} */
+    async deleteDatabase() {
+        return DB.pipe(indexedDB.deleteDatabase(DB._dbName));
+    }
 }
-
-function removeItemsGeneric(keys, callback) {
-  var localforageInstance = this;
-
-  var itemPromises = [];
-  for (var i = 0, len = keys.length; i < len; i++) {
-      var key = keys[i];
-      itemPromises.push(localforageInstance.removeItem(key));
-  }
-
-  var promise = Promise.all(itemPromises);
-
-  executeCallback(promise, callback);
-  return promise;
-}
-
-function removeItemsIndexedDB(keys, callback) {
-  var localforageInstance = this;
-  var promise = localforageInstance.ready().then(function () {
-      return new Promise(function (resolve, reject) {
-          var dbInfo = localforageInstance._dbInfo;
-          var transaction = dbInfo.db.transaction(dbInfo.storeName, 'readwrite');
-          var store = transaction.objectStore(dbInfo.storeName);
-          var firstError;
-
-          transaction.oncomplete = function () {
-              resolve();
-          };
-
-          transaction.onabort = transaction.onerror = function () {
-              if (!firstError) {
-                  reject(transaction.error || 'Unknown error');
-              }
-          };
-
-          function requestOnError(evt) {
-              var request = evt.target || this;
-              if (!firstError) {
-                  firstError = request.error || request.transaction.error;
-                  reject(firstError);
-              }
-          }
-
-          for (var i = 0, len = keys.length; i < len; i++) {
-              var key = keys[i];
-              if (typeof key !== 'string') {
-                  console.warn(key + ' used as a key, but it is not a string.');
-                  key = String(key);
-              }
-              var request = store.delete(key);
-              request.onerror = requestOnError;
-          }
-      });
-  });
-  executeCallback(promise, callback);
-  return promise;
-}
-
-function executeSqlAsync(transaction, sql, parameters) {
-  return new Promise(function (resolve, reject) {
-      transaction.executeSql(sql, parameters, function () {
-          resolve();
-      }, function (t, error) {
-          reject(error);
-      });
-  });
-}
-
-function removeItemsWebsql(keys, callback) {
-  var localforageInstance = this;
-  var promise = localforageInstance.ready().then(function () {
-      return new Promise(function (resolve, reject) {
-          var dbInfo = localforageInstance._dbInfo;
-          dbInfo.db.transaction(function (t) {
-              var storeName = dbInfo.storeName;
-
-              var itemPromises = [];
-              for (var i = 0, len = keys.length; i < len; i++) {
-                  var key = keys[i];
-                  if (typeof key !== 'string') {
-                      console.warn(key + ' used as a key, but it is not a string.');
-                      key = String(key);
-                  }
-                  itemPromises.push(executeSqlAsync(t, 'DELETE FROM ' + storeName + ' WHERE key = ?', [key]));
-              }
-
-              Promise.all(itemPromises).then(resolve, reject);
-          }, function (sqlError) {
-              reject(sqlError);
-          });
-      });
-  });
-  executeCallback(promise, callback);
-  return promise;
-}
-
-function localforageRemoveItems() /*keys, callback*/{
-  var localforageInstance = this;
-  var currentDriver = localforageInstance.driver();
-
-  if (currentDriver === localforageInstance.INDEXEDDB) {
-      return removeItemsIndexedDB.apply(localforageInstance, arguments);
-  } else if (currentDriver === localforageInstance.WEBSQL) {
-      return removeItemsWebsql.apply(localforageInstance, arguments);
-  } else {
-      return removeItemsGeneric.apply(localforageInstance, arguments);
-  }
-}
-
-function extendPrototype(localforage$$1) {
-  var localforagePrototype = Object.getPrototypeOf(localforage$$1);
-  if (localforagePrototype) {
-      localforagePrototype.removeItems = localforageRemoveItems;
-      localforagePrototype.removeItems.indexedDB = function () {
-          return removeItemsIndexedDB.apply(this, arguments);
-      };
-      localforagePrototype.removeItems.websql = function () {
-          return removeItemsWebsql.apply(this, arguments);
-      };
-      localforagePrototype.removeItems.generic = function () {
-          return removeItemsGeneric.apply(this, arguments);
-      };
-  }
-}
-
-var extendPrototypeResult = extendPrototype(localforage);
-
-exports.localforageRemoveItems = localforageRemoveItems;
-exports.extendPrototype = extendPrototype;
-exports.extendPrototypeResult = extendPrototypeResult;
-exports.removeItemsGeneric = removeItemsGeneric;
-
-Object.defineProperty(exports, '__esModule', { value: true });
-
-})));
