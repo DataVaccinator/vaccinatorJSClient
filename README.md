@@ -15,26 +15,12 @@ Get more information at <https://www.datavaccinator.com>
 
 # DevOps
 
-To regenerate the declaration file of the vaccinator_api.js follow these steps:
-1. Add the keyword "**export**" before the **class** declaration:
-```js
-export class vaccinator {
-```
-2. Execute following command:
+To regenerate the declaration file of the _vaccinator_api.js_, run the following makefile in the _/src/_ directory:
 ```sh
-tsc --allowJs -d --emitDeclarationOnly src/vaccinator_api.js
-```
-3. Remove the keyword **export** in the **js** file:
-```js
-class vaccinator {
-```
-4. Replace the **export** keyword in the **d.ts** file with the **declare** keyword:
-```ts
-declare class vaccinator {
+make ts
 ```
 
-
-If the tsc command is not available, you need the npm "typescript" package installed globaly:
+If the _tsc_ command is not available, you need the npm "typescript" package installed globaly:
 ```sh
 npm i -g typescript
 ```

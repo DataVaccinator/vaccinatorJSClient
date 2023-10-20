@@ -26,24 +26,29 @@ Include the DataVaccinator JavaScript API and all needed classes into your exist
 
 Now, there is a new class *Vaccinator* available.
 
-Please note that the _localforage.min.js_ is for local database access and _vaccinator_api.js_ is the final class code you want to use.
+Please note that the _localforage.min.js_ is for local database access. 
+The _vaccinator_api.js_ is the final class code you want to use.
 
 All class functions except the <<validateAppId>> function are asynchronous and return a promise.
 
 === Initialization and configuration
 
-The DataVaccinator class is named *Vaccinator* and in instantiated like this:
+The DataVaccinator class is named *Vaccinator* and is created and initialized like this:
 
-`variable = new Vaccinator(configurationObject);`
+[source,javascript]
+----
+v = new Vaccinator(configurationObject);
+await v.init();
+----
 
-A typical instantiation with some configuration values looks like this:
+A typical creation with some common configuration options looks like this:
 
 [source,javascript]
 ----
 try {
   const appId = 'someAppId'; // application password
 
-  // initialize v as new DataVaccinator instance
+  // create v as new DataVaccinator instance
   const v = new Vaccinator({
       serviceUrl: 'https://DataVaccinatorVaultURL',
       userIdentifier: 'username',
@@ -52,6 +57,8 @@ try {
       headers: {'cache-control': 'max-age=60'},
       searchFields: [ "firstname", "lastname", "address_street" ],
   });
+  // initialize the new created DataVaccinator instance (don't forget!)
+  await v.init();
 
   // get some information from the server
   let serverInfo = await v.getServerInfo();
@@ -65,26 +72,42 @@ try {
 
 Don't forget to wrap a try/catch block around your class calls to handle potential errors thrown by the vaccinator class like in the above example.
 
-This are the configuration options available:
+This are the available *configuration options*:
 
-serviceUrl:: serviceURl is the URL where the API endpoint at the service provider is located. For example: https://service-provider.tld/protocol. All POST calls of the API will be sent to this destination. Please note that "same origin" policy might affect this. In the best case, this is the same domain than your app is running at.
+serviceUrl:: The URL where the API endpoint at the service provider is located. For example: \https://service-provider.tld/protocol . 
+All POST calls of the API will be sent to this destination. Please note that "same origin" policy might affect this. In the best case, this is the same domain than your app is running at. If not, please make sure that your server (or the DataVaccinator Vault directly) is using a valid CORS setting.
 
-userIdentifier:: userIdentifier is some mandatory identifier that the class is using to handle different aspects of saving user related information (like app-id). Also, the class is submitting this information as uid parameter in all protocol calls to the service provider. We suggest to use the name of the user who is using your application (eg email address).
+userIdentifier:: userIdentifier is some mandatory identifier that the class is using to handle different aspects of saving user related information (like app-id) in the local database. Also, the class is submitting this information as *uid* parameter in all protocol calls to the service provider. We suggest to use the name of the user who is using your application (eg email address).
 
 appId:: The app-id is the end users application password for additional encryption. The vaccinator class expects some app-id known. If not submitted or undefined, the class is trying to get it from previous calls (local database). It throws an error if this fails.
 
 password:: This password is used to encrypt the app-id in the local storage database. If not submitted or undefined, the app-id will get stored without any encryption (not recommended). We recommend to submit the password the user entered for log-in to your application or some organization password. By this, the local database will not leak the app-id in case someone is trying to read the browser database.
 
-useCache:: Set to false to disable any local caching. We suggest to not turn caching on/off during a working session.  Default is `true`.
+useCache:: Set to _false_ to disable any local caching. We suggest to not turn caching on/off during a working session. Default is `true`.
 
-debugMode:: Set debugMode to true in order to activate debug output to browser console. Mainly for finding bugs by the developer of DataVaccinator class but maybe also helpful for you. Default is 'false'.
+debugMode:: Set debugMode to _true_ in order to activate debug output to browser console. Mainly for finding bugs by the developers of DataVaccinator class, but maybe also helpful for you. Default is _false_.
 
- headers:: Define additional header values to send on service requests.
+ headers:: Define additional header values to send on service requests. In this example, we set some cache-control header: `{'cache-control': 'max-age=60'}`
 
- searchFields:: Here you submit an array of field names to be used for search function. If your payload is JSON and contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs later using the search function. To disable the feature, submit an empty array or no parameter.
+ searchFields:: Here you submit an array of field names to be used for the search function. If your payload is JSON and contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs later using the search function. To disable the feature, submit an empty array or no parameter.
  
  directLogin:: Enable direct login. By this, the protocol is enhanced by adding _sid_ and _spwd_ values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator Vault without any intermediate or proxy instance. Submit like an object property of `{serviceProviderId:int, serviceProviderPwd:string}`.
 
+== Class functions
+
+=== init
+
+[cols="1,4"]
+|=======
+|Description:
+|Initializing the Vaccinator object.
+|Parameters:
+|-
+|Return value:
+|-
+|Info:
+|This must be done once after the object was created! See <<Initialization and configuration>> above for more details.
+|=======
 
 === new
 
@@ -313,9 +336,7 @@ a|The search term is one or more words, divided by space. If multiple words are 
 Search words do not have to be complete and case does not matter. The search always begins on the left and returns all matches there. Thus, you can simply enter "joh foo" to find John Foobar.
 |=======
 
-NOTE: This only works if the <<searchFields>> config parameter was set during class initialization. You can only search for entries that were pushed or updated with searchFields cnfiguration submitted.
-
-NOTE: This only works if the DataVaccinator Vault activated the "search" plugin. If not, you will get EC_MISSING_PARAMETERS.
+NOTE: This only works if the *searchFields* config parameter was set during class initialization. You can only search for entries that were pushed or updated with searchFields cnfiguration submitted.
 
 == Publishing API
 
@@ -329,7 +350,7 @@ This is what the publishing functions allow you to do. Obviously, the receiving 
 
 . They have an expiration date (*durationDays*) which makes them become deleted automatically in DataVaccinator Vault if they expire.
 . They can not get updated.
-. They do not support <<search-api>> usage.
+. They do not support <<Search API>> usage.
 . They can get accessed by other service providers if they know the VID.
 . They are encrypted with some different password than your common app-id.
 . There is no caching for published stuff.
@@ -448,6 +469,6 @@ The function <<get>> will now return a Map<string, VData>. Attention! Beside of 
 
 Because the <<validateAppId>> is now an async function, the app-Id can not be validated at the constructor anymore. Please check the app-Id with the [Vaccinator.validateAppId] function before passing it to the constructor!
 
-The "aes.js" & "forge-sha256.min.js"-script is not necessary anymore and should be omitted in the html head declaration.
+The "aes.js" & "forge-sha256.min.js"-includes are no longer necessary and should be omitted in the html head declaration.
 
 The constraint of max 500 vids per request for <<get>>, <<delete>> and <<getPublished>> is obsolete. Passed vids will become chunked now internaly to fit DataVaccinator vault constraints.
