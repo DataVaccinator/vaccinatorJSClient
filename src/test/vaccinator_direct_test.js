@@ -37,7 +37,7 @@ async function v2() {
         debugMode: false,
         headers: {'cache-control': 'max-age=60'},
         searchFields: [ "firstname", "lastname", "address_street" ],
-        direktLogin: {
+        directLogin: {
             serviceProviderId: 1,
             serviceProviderPwd: 'vaccinator'
         },

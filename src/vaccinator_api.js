@@ -10,7 +10,7 @@
  * @property {boolean?} debugMode Set debugMode to true in order to activate debug output to browser console. Mainly for finding bugs by the developer of DataVaccinator class but maybe also helpful for you. Default is `false`.
  * @property {Headers?} headers Define additional header values to send on service requests.
  * @property {Array<string>?} searchFields Here you submit an array of field names to be used for search function. If your payload is JSON and contains values for the given fields, they will get uploaded as SearchHash to the DataVaccinator Vault. This then allows you to find the assigned VIDs later using the search function. To disable the feature, submit an empty array or no parameter.
- * @property {{serviceProviderId:int, serviceProviderPwd:string}?} direktLogin Enable direct login. By this, the protocol is enhanced by adding sid and spwd values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator Vault without any intermediate or proxy instance.
+ * @property {{serviceProviderId:int, serviceProviderPwd:string}?} directLogin Enable direct login. By this, the protocol is enhanced by adding sid and spwd values (serviceProviderId and serviceProviderPwd). This is needed to directly access the DataVaccinator Vault without any intermediate or proxy instance.
 */
 /** @typedef {{data: string|Object, status?: string}} VData */
 /**@typedef {'AES-CBC'|'AES-GCM'} EncryptionMode */
@@ -126,11 +126,11 @@ class Vaccinator {
         /**
          * Current service provider id (enableDirectLogin).
          * @private */
-        this._sid = config.direktLogin?.serviceProviderId ?? undefined;
+        this._sid = config.directLogin?.serviceProviderId ?? undefined;
         /**
          * Current service provider password (enableDirectLogin).
          * @private */
-        this._spwd = config.direktLogin?.serviceProviderPwd ?? undefined;
+        this._spwd = config.directLogin?.serviceProviderPwd ?? undefined;
         /**
          * Current database handle.
          * @private
@@ -153,8 +153,6 @@ class Vaccinator {
         // init database
         DB.createInstance('vaccinator-' + this._userIdentifier).then(db => {
             this._db = db;
-
-
             await Vaccinator.createInstance({});
         });
 
