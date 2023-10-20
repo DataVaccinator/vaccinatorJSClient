@@ -148,16 +148,17 @@ class Vaccinator {
         if(!this._serviceUrl || !this._userIdentifier) {
             throw this._onError(new EvalError('init: url and userName parameter are mandatory'), kVaccinatorInvalidErrorCode);
         }
+    }
 
+    async init() {
         // async functions
         // init database
-        DB.createInstance('vaccinator-' + this._userIdentifier).then(db => {
-            this._db = db;
-            await Vaccinator.createInstance({});
-        });
+        this._db = await DB.createInstance('vaccinator-' + this._userIdentifier);
 
         if(this._appId) {
-            this._saveAppId(this._appId); // called async. But it's ok here, because the app-Id is cached in memory before it is completly written to the storage.
+            // called async. But it's ok here, because the app-Id is cached in memory
+            // before it is completly written to the storage.
+            this._saveAppId(this._appId);
         }
 
         this._debug(this._debugging && "Initialization done");
@@ -252,12 +253,12 @@ class Vaccinator {
             xhr.open(method, this._serviceUrl, true);
             xhr.timeout = kXhrTimeout;
             xhr.ontimeout = xhr.onerror = e => {
-                if(e instanceof XMLHttpRequestProgressEvent) { // XMLHttpRequestProgressEvent has a weird toString output, so we need to log the error directly into the console.
-                    console.error(e);
-                    reject(this._onError(`XMLHttpRequestProgressEvent: Request failed! Inspect previous error log.`));
-                } else {
+                // if(e instanceof XMLHttpRequestProgressEvent) { // XMLHttpRequestProgressEvent has a weird toString output, so we need to log the error directly into the console.
+                //    console.error(e);
+                //    reject(this._onError(`XMLHttpRequestProgressEvent: Request failed! Inspect previous error log.`));
+                //} else {
                     reject(this._onError(e));
-                }
+                //}
             };
             for (const key in this._headers) {
                 if (Object.hasOwnProperty.call(this._headers, key)) {
@@ -1299,7 +1300,7 @@ class DB {
      * @param {string} key
      * @returns {Promise<any>}
      */
-    async get(key) {
+    async getItem(key) {
         const t = this.transaction(kVDataStoreName, 'readonly')
             , store = t.objectStore(kVDataStoreName);
         return DB.pipe(store.get(key));
@@ -1312,7 +1313,7 @@ class DB {
      * @param {any} value
      * @returns {Promise<void>}
      */
-    async put(key, value) {
+    async setItem(key, value) {
         const t = this.transaction(kVDataStoreName, 'readwrite')
             , store = t.objectStore(kVDataStoreName);
         return DB.pipe(store.put(value, key));
@@ -1328,6 +1329,21 @@ class DB {
         const t = this.transaction(kVDataStoreName, 'readwrite')
             , store = t.objectStore(kVDataStoreName);
         return DB.pipe(store.delete(key));
+    }
+
+    /**
+     * Removes all the entries from the database.
+     *
+     * @param {Array} key
+     * @returns {Promise<void>}
+     */
+    async removeItems(keys) {
+        return new Promise(async (resolve, reject) => {
+            for (const key of keys) {
+                await this.remove(key);
+            }
+            resolve();
+        });
     }
 
     /**

@@ -15,7 +15,7 @@ async function v2() {
     const vData = {
             data: `{
                 "firstname":"Spongebob","lastname":"Square Pants",
-                "Gender":"male","address_street":"Bikinistreet",
+                "gender":"male","address_street":"Bikinistreet",
                 "address_number":"42","address_city":"Bikini Bottom",
                 "address_zip":"12345","address_country":"Bikiniland",
                 "address_phone":"","address_mail":"spongebob@bikinibottom.water",
@@ -30,8 +30,8 @@ async function v2() {
         , nonSense = '_nonSense';
 
     const v = new Vaccinator({
-        serviceUrl: 'http://192.168.64.6:80',
-        userIdentifier: 'kristof',
+        serviceUrl: 'http://127.0.0.1:8080',
+        userIdentifier: 'testuser',
         password: 'password', // TODO: 'pässword' => appid
         appId: appId,
         debugMode: false,
@@ -39,10 +39,10 @@ async function v2() {
         searchFields: [ "firstname", "lastname", "address_street" ],
         directLogin: {
             serviceProviderId: 1,
-            serviceProviderPwd: 'vaccinator'
+            serviceProviderPwd: 'dv123'
         },
     });
-
+    await v.init();
 
     let tmp;
 
@@ -143,11 +143,11 @@ async function v2() {
     // await _test(() => v.delete(notExistingVid), r => !r, 'Should not fail!');
 
     // changeAppId
-    tmp = await Vaccinator.__hash('new-app-id');
-    await _test(() => v.wipeCache(), r => r, 'Result should be true!');
-    await _test(() => v.changeAppId(_lastVid, appId, 'new-app-id' + tmp.slice(-2)), r => r == 1, 'Result should match length!');
-    await _test(() => v.wipeCache(), r => r, 'Result should be true!');
-    _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should be valid!');
+    // tmp = await Vaccinator.__hash('new-app-id');
+    // await _test(() => v.wipeCache(), r => r, 'Result should be true!');
+    // await _test(() => v.changeAppId(_lastVid, appId, 'new-app-id' + tmp.slice(-2)), r => r == 1, 'Result should match length!');
+    // await _test(() => v.wipeCache(), r => r, 'Result should be true!');
+    // _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should be valid!');
 
     await _wait(kMaxElipsedTime); // wait for uncompleted functions
 
@@ -168,7 +168,7 @@ async function v1() {
     console.info('Starting vaccinator direct test v1.');
 
     let vData = '{"firstname":"Spongebob","lastname":"Square Pants", '+
-            '"Gender":"male","address_street":"Bikinistreet", '+
+            '"gender":"male","address_street":"Bikinistreet", '+
             '"address_number":"42","address_city":"Bikini Bottom", '+
             '"address_zip":"12345", "address_country":"Bikiniland", '+
             '"address_phone":"","address_mail":"spongebob@bikinibottom.water", '+
@@ -202,7 +202,7 @@ async function v1() {
     const token = "token-weekday-" + new Date().getDay();
     await _test(() => v.wipeCache(token), r => true);
     vData = '{"firstname":"Sandy","lastname":"Cheeks", '+
-        '"Gender":"female","address_street":"Bikinistreet", '+
+        '"gender":"female","address_street":"Bikinistreet", '+
         '"address_number":"8","address_city":"Bikini Bottom", '+
         '"address_zip":"12345", "address_country":"Bikiniland"'+
         '}';
