@@ -3,7 +3,11 @@ This is the first DataVaccinator JavaScript client implementation. It can be use
 
 This repository includes the JavaScript class and all files to be included for using the DataVaccinator.
 
-**Important:** Please note that this is not usable without any DataVaccinator Vault installation. See https://github.com/DataVaccinator/dv-vault for the server sourcecode.
+> [!IMPORTANT]  
+> Please note that this is not usable without any DataVaccinator Vault installation. See https://github.com/DataVaccinator/dv-vault for the server sourcecode.
+
+> [!WARNING]  
+> The master branch is in development. Please use the stable branches for production!
 
 If you like to get more details, please contact us at info@datavaccinator.com.
 
