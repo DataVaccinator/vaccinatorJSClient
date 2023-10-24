@@ -47,20 +47,20 @@ async function v2() {
     let tmp;
 
     // encrypt / decrypt
-    // let key = await v._getCryptoKey(); // AES-GCM test
-    // tmp = await _test(() => v._encrypt('data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
-    // await _test(() => v._decrypt(tmp, key), r => 'data' == r, 'Result does not match!');
-    // tmp = await _test(() => v._encrypt('!?Ä*&A data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
-    // await _test(() => v._decrypt(tmp, key), r => '!?Ä*&A data' == r, 'Result does not match!');
-    // tmp = await _test(() => v._encrypt('!?Ä*&A请 data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
-    // await _test(() => v._decrypt(tmp, key), r => '!?Ä*&A请 data' == r, 'Result does not match!');
-    // tmp = await _test(() => v._encrypt(kText, key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
-    // await _test(() => v._decrypt(tmp, key), r => kText == r, 'Result does not match!');
-    // _test(() => v._decrypt(gmc, key, 'eadfe1c268182463747c081caef526c8'), r => kText == r, 'Result does not match!');
-    // _test(() => v._decrypt(gmc, key, '_eadfe1c268182463747c081caef526c8'), r => r, 'Result does not match!', true);
+    let key = await v._getCryptoKey(); // AES-GCM test
+    tmp = await _test(() => v._encrypt('data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
+    await _test(() => v._decrypt(tmp, key), r => 'data' == r, 'Result does not match!');
+    tmp = await _test(() => v._encrypt('!?Ä*&A data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
+    await _test(() => v._decrypt(tmp, key), r => '!?Ä*&A data' == r, 'Result does not match!');
+    tmp = await _test(() => v._encrypt('!?Ä*&A请 data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
+    await _test(() => v._decrypt(tmp, key), r => '!?Ä*&A请 data' == r, 'Result does not match!');
+    tmp = await _test(() => v._encrypt(kText, key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
+    await _test(() => v._decrypt(tmp, key), r => kText == r, 'Result does not match!');
+    _test(() => v._decrypt(gmc, key, 'eadfe1c268182463747c081caef526c8'), r => kText == r, 'Result does not match!');
+    _test(() => v._decrypt(gmc, key, '_eadfe1c268182463747c081caef526c8'), r => r, 'Result does not match!', true);
 
-    // key = await v._getCryptoKey('AES-CBC'); // AES-CBC test
-    // await _test(() => v._decrypt(cbc, key), r => kText == r, 'Result does not match!');
+    key = await v._getCryptoKey('AES-CBC'); // AES-CBC test
+    await _test(() => v._decrypt(cbc, key), r => kText == r, 'Result does not match!');
 
 
     // hash
@@ -75,16 +75,16 @@ async function v2() {
     // });
 
     // helper
-    // await _test(() => v._generateRandom(16), r => ((tmp = r) && r.byteLength == 16), 'Array should be the same length!');
-    // await _test(() => v._buf2hex(tmp), r => kHexRegex.test(tmp = r), 'Result should match the regex!');
-    // await _test(() => v._hex2buf(tmp), r => (r instanceof Uint8Array), 'Result should be a Uint8Array!');
-    // await _test(() => Vaccinator._string2buffer(kText), r => kText == Vaccinator._buffer2string(r), 'Result should match!');
+    await _test(() => v._generateRandom(16), r => ((tmp = r) && r.byteLength == 16), 'Array should be the same length!');
+    await _test(() => v._buf2hex(tmp), r => kHexRegex.test(tmp = r), 'Result should match the regex!');
+    await _test(() => v._hex2buf(tmp), r => (r instanceof Uint8Array), 'Result should be a Uint8Array!');
+    await _test(() => Vaccinator._string2buffer(kText), r => kText == Vaccinator._buffer2string(r), 'Result should match!');
 
     // search internal
-    // _test(() => v._searchHash('Hallo'), r => !!r, '!');
-    // _test(() => v._searchHash(kText), r => r == '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should match the string!');
-    // _test(() => v._searchHash(kText.substring(1)), r => r !== '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should not match the string!');
-    // _test(() => v._searchHash('data', true), r => kHexRegex.test(r), 'Result should match the regex!');
+    _test(() => v._searchHash('Hallo'), r => !!r, '!');
+    _test(() => v._searchHash(kText), r => r == '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should match the string!');
+    _test(() => v._searchHash(kText.substring(1)), r => r !== '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should not match the string!');
+    _test(() => v._searchHash('data', true), r => kHexRegex.test(r), 'Result should match the regex!');
     _test(() => v._getSearchWords(vData), r => (r && r.length == 4), 'Result should math the search fields length!');
 
     // store / cache
@@ -98,34 +98,35 @@ async function v2() {
     await _test(() => v.new(vData), r => _pushVid(r), 'Result should not be null!'); // !!!! needed for further tests
 
     // // get
-    // _test(() => v.getServerInfo(), r => !!r, 'Result should not be null!');
-    // _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should math!');
-    // _test(() => v.get(_lastVid, true), r => _validateMap(r), 'Result should match!');
-    // _test(() => v.get(notExistingVid), r => _validateMap(r, 'NOTFOUND'), 'Result should not fail!');
-    // _test(() => v.get(notExistingVid, true), r => _validateMap(r, 'NOTFOUND'), 'Result should not fail!');
-    // _test(() => v.get(nonSense, true), r => r, 'Result should fail!', true);
-    // _test(() => v.get([_lastVid, notExistingVid]), r => r.size == 2, 'Result should match!');
-    // _test(() => v.get([_lastVid, notExistingVid], true), r => r.size == 2, 'Result should match!');
-    // _test(() => v.get([_lastVid, nonSense]), r => r, 'Result should fail!', true);
+    _test(() => v.getServerInfo(), r => !!r, 'Result should not be null!');
+    _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should math!');
+    _test(() => v.get(_lastVid, true), r => _validateMap(r), 'Result should match!');
+    _test(() => v.get(notExistingVid), r => _validateMap(r, 'NOTFOUND'), 'Result should not fail!');
+    _test(() => v.get(notExistingVid, true), r => _validateMap(r, 'NOTFOUND'), 'Result should not fail!');
+    _test(() => v.get(nonSense, true), r => r, 'Result should fail!', true);
+    _test(() => v.get([_lastVid, notExistingVid]), r => r.size == 2, 'Result should match!');
+    _test(() => v.get([_lastVid, notExistingVid], true), r => r.size == 2, 'Result should match!');
+    _test(() => v.get([_lastVid, nonSense]), r => r, 'Result should fail!', true);
 
     // // update
-    // vData.data =    '{"firstname":"Dr. Patrick","lastname":"Star",'+
-    //                 '"address_street":"Bikini-Street"}';
-    // await _test(() => v.update(_lastVid, vData), r => !r, 'Result should not fail!');
-    // _test(() => v.update('_wrongVid', vData), r => !r, 'Result should failed!', true);
+    vData.data =    '{"firstname":"Dr. Patrick","lastname":"Star",'+
+                    '"address_street":"Bikini-Street"}';
+    await _test(() => v.update(_lastVid, vData), r => !r, 'Result should not fail!');
+    _test(() => v.update('_wrongVid', vData), r => !r, 'Result should failed!', true);
 
     // // search
-    // _test(() => v.search('pat'), r => r.length == 1, 'Wrong number of results!');
-    // _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
-    // _test(() => v.search('patr sta'), r => r.length == 1, 'Wrong number of results!');
-    // _test(() => v.search('patr tes'), r => r.length == 0, 'Wrong number of results!');
-    // _test(() => v.search('Bikini Street'), r => r.length == 1, 'Wrong number of results!');
-    // _test(() => v.search('Dr. Patrick'), r => r.length == 1, 'Wrong number of results!');
+    _test(() => v.search('pat'), r => r.length == 1, 'Wrong number of results!');
+    _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
+    _test(() => v.search('patr sta'), r => r.length == 1, 'Wrong number of results!');
+    _test(() => v.search('patr tes'), r => r.length == 0, 'Wrong number of results!');
+    _test(() => v.search('Bikini Street'), r => r.length == 1, 'Wrong number of results!');
+    _test(() => v.search('Dr. Patrick'), r => r.length == 1, 'Wrong number of results!');
 
     // // publish
-    // await _test(() => v.publish(vData, 'password', 5), r => _pushVid(r), 'Result should not be null!');
-    // await _test(() => v.getPublished(_lastVid, 'password'), r => (r && r[_lastVid].status == "OK"), 'Result should not be empty!');
-    // _test(() => v.getPublished(_lastVid, '_password'), r => !!r, 'Result should fail!', true);
+    await _test(() => v.publish(vData, 'password', 5), r => _pushVid(r), 'Result should not be null!');
+    // TODO: Fails here!
+    await _test(() => v.getPublished(_lastVid, 'password'), r => (r && r[_lastVid].status == "OK"), 'Result should not be empty!');
+    await _test(() => v.getPublished(_lastVid, '_password'), r => !!r, 'Result should fail!', true);
 
     // // app-Id
     // await _test(() => v.getAppId(), r => appId == r, 'Result should mathc!');
@@ -208,8 +209,11 @@ async function v1() {
         '}';
     await _test(() => v.publish(vData, "myPassword", 5), r => _pushVid(r), 'New VID is empty!');
     _test(() => v.getPublished([ _lastVid, "ff52f1b0a314fba7d45e87ca5bf5e654" ], "myPassword"), r => r, 'Result should not be empty!');
-    _test(() => v.getPublished("ff52f1b0a314fba7d45e87ca5bf5e654", "myPassword"), r => (!r || r["ff52f1b0a314fba7d45e87ca5bf5e654"].status == "NOTFOUND"), 'Result should not exist!');
-    _test(() => v.getPublished(_lastVid, "wrongPassword"), r => (!r || r[_lastVid].status == "ERROR"), 'Result should fail!');
+    // _test(() => v.getPublished("ff52f1b0a314fba7d45e87ca5bf5e654", "myPassword"), r => (!r || r["ff52f1b0a314fba7d45e87ca5bf5e654"].status == "NOTFOUND"), 'Result should not exist!');
+    _test(() => v.getPublished("ff52f1b0a314fba7d45e87ca5bf5e654", "myPassword"), r => _validateMap(r, 'NOTFOUND'), 'Result should not exist!');
+
+    // _test(() => v.getPublished(_lastVid, "wrongPassword"), r => (!r || r[_lastVid].status == "ERROR"), 'Result should fail!');
+    _test(() => v.getPublished(_lastVid, "wrongPassword"), r => _validateMap(r, 'ERROR'), 'Result should fail!');
 
     // clean all created vids
     await _test(() => v.delete(_vids), r => (r && r.length), 'Deleted VIDs should not be empty!');

@@ -832,6 +832,7 @@ class Vaccinator {
         await this.getAppId(); // ensure appid is in memory
 
         const chunks = this._chunk(vids);
+        const result = new Map() // compose result
         for (const c of chunks) {
             let r = await this._fetch({method: 'POST', body: {
                 op: "getpublished",
@@ -850,6 +851,7 @@ class Vaccinator {
                         const e = data[vid];
 
                         if(e.status == "NOTFOUND") {
+                            result.set(vid, e);
                             continue;
                         }
 
@@ -864,6 +866,8 @@ class Vaccinator {
                             // cleanup failing dataset
                             e.status = 'ERROR';
                             e.data = undefined;
+                        } finally {
+                            result.set(vid, e);
                         }
                     }
                 }
@@ -871,7 +875,7 @@ class Vaccinator {
                 throw this._onError(r, kVaccinatorServiceErrorCode);
             }
         }
-        return data;
+        return result;
     }
 
     /**
