@@ -150,8 +150,7 @@ The *vaccinationData* is PID in some JSON encoded dataset. It may contain person
 |Return value:
 |(promise) (object array) vaccinationData
 |Info:
-a|The submitted *VID* is the identifying Vaccination ID (previously returned by <<new>>). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. If you want to provide more than 500 VIDs, please call this
-function in chunks (will trigger an exception otherwise).
+a|The submitted *VID* is the identifying Vaccination ID (previously returned by <<new>>). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
 
 The returned payload is an associative object array with the *VID* as key and some object as value. The value object is having two fields: *status* (OK or NOTFOUND) and *data* (the Vaccination Data). If *status* is NOTFOUND, data is false.
 
@@ -192,8 +191,6 @@ var status = result[vid]['status'];
 |(promise) (array) VID(s)
 |Info:
 |The *VID* is the identifying Vaccination ID (for example, returned by new). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
-
-If you want to provide more than 500 VIDs, please call this function in chunks (will trigger an exception otherwise).
 |=======
 
 === wipe
@@ -402,8 +399,7 @@ Refer to <<new>> function for further details.
 |Return value:
 |(promise) (object array) vaccinationData
 |Info:
-a|The submitted **VID**s are the identifying Vaccination IDs, previously returned by <<publish>>. Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank. If you want to provide more than 500 VIDs, please call this
-function in chunks (will trigger an exception otherwise).
+a|The submitted **VID**s are the identifying Vaccination IDs, previously returned by <<publish>>. Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
 
 The returned payload is an associative object array with the *VID* as key and some object as value. The value object is having two fields: *status* (OK or NOTFOUND) and *data* (the Vaccination Data). If *status* is NOTFOUND, data is false.
 
