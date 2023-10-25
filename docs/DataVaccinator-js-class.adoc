@@ -451,24 +451,24 @@ If you get some *VACCINATOR_INVALID*, you very like passed in some parameter or 
 
 v2.0 is a major improvement of the origin vaccinator class.
 
-create an instance with capital V: new Vaccinator();
+. Create the instance with capital V now: `const v = new Vaccinator(config);`
 
-The functions <<init>>, <<enableDirectLogin>>, <<setHeaders>>, <<enableSearchFunction>> were *removed* an the parameters moved into the constructor as one config parameter. You can use intellisense.
+. The new default encryption method is *AES-GCM*. The library is still able to read and process *AES-CBC* mode encrypted data (legacy). But all new data is encrypted with the new algorithm.
 
-The function <<getAppId>> has now a "force" parameter.
+. The includes "aes.js" and "forge-sha256.min.js" are no longer necessary and should be omitted in the html head declaration.
 
-The function <<validateAppId>> is now deprecated. Use the static method Vaccinator.validateAppId instead.
+. The function <<get>> will now return a Map<string, VData>. *Attention!* Beside of the benefits of a Map, the Map values can not become accessed using the bracket notation "map['key']". It is neccessary to use the [Map.get] method or the [Map.size] instead of [length] property.
 
-The property <<useCache>>, <<debugging>> is now private, because it can be set in the constructor.
+. The functions <<enableDirectLogin>>, <<setHeaders>>, <<enableSearchFunction>> were *removed* an the parameters moved into the constructor as one config parameter. You can use intellisense.
 
-The functions <<update>>, <<delete>>, <<wipe>> have no return value anymore. It had returned the same vid(s) only.
+. The function <<getAppId>> has now a "force" parameter.
 
-The legacy functions <<userNew>>, <<userUpdate>>, <<userDelete>>, <<userGet>> and <<userWipe>> removed.
+. The function <<validateAppId>> is now deprecated. Use the static method `Vaccinator.validateAppId()` instead.
 
-The function <<get>> will now return a Map<string, VData>. Attention! Beside of the benefits of a Map, the Map values can not become accessed using the bracket notation "map['key']". It is neccessary to use the [Map.get] method or the [Map.size] instead of [length] property.
+. The properties <<useCache>>, <<debugging>> are now private, because they can be set in the constructor.
 
-Because the <<validateAppId>> is now an async function, the app-Id can not be validated at the constructor anymore. Please check the app-Id with the [Vaccinator.validateAppId] function before passing it to the constructor!
+. The functions <<update>>, <<delete>>, <<wipe>> have no return value anymore. They previously only returned the same vid(s) as provided.
 
-The "aes.js" & "forge-sha256.min.js"-includes are no longer necessary and should be omitted in the html head declaration.
+. The legacy functions <<userNew>>, <<userUpdate>>, <<userDelete>>, <<userGet>> and <<userWipe>> were removed.
 
-The constraint of max 500 vids per request for <<get>>, <<delete>> and <<getPublished>> is obsolete. Passed vids will become chunked now internaly to fit DataVaccinator vault constraints.
+. The constraint of max 500 vids per request for <<get>>, <<delete>> and <<getPublished>> is obsolete. Passed vids will become chunked now automatically to fit DataVaccinator vault constraints. You can submit more than 500 vids without any problems.
