@@ -272,9 +272,9 @@ declare class Vaccinator {
      */
     private _new;
     /**
-     * Create a new PID entry.
+     * Create a new VID entry.
      *
-     * The vaccinationData is PID in some JSON encoded dataset. It may contain personal information of a person (PID). This is returned later by the {@link get} function.
+     * The vaccinationData is VID in some JSON encoded dataset. It may contain personal information of a person (VID). This is returned later by the {@link get} function.
      *
      * @param {VData} vData
      * @returns {Promise<string>} New created vid.
@@ -289,7 +289,7 @@ declare class Vaccinator {
      */
     getAppId(force?: boolean): Promise<string>;
     /**
-     * Create a new PID entry for publishing.
+     * Create a new VID entry for publishing.
      *
      * @param {VData} vData
      * @param {string} password
@@ -298,7 +298,7 @@ declare class Vaccinator {
      */
     publish(vData: VData, password: string, duration: number): Promise<string>;
     /**
-     * Update vaccinationData of an existing PID entry.
+     * Update vaccinationData of an existing VID entry.
      *
      * @param {string} vid
      * @param {VData} vData
@@ -330,14 +330,15 @@ declare class Vaccinator {
      */
     getPublished(vids: string | string[], password: string): Promise<Map<string, any>>;
     /**
-     * Wipe the given PID entry from the local cache.
+     * Wipe the given VID entry from the local cache.
      * This does not delete data from DataVaccinator Vault!
      *
      * @param {string|string[]} vids
+     * @returns {Promise<Boolean>} success
      */
-    wipe(vids: string | string[]): Promise<void>;
+    wipe(vids: string | string[]): Promise<boolean>;
     /**
-     * This is trying to re-encode all stored Vaccination Data (PID) after the app-id has changed.
+     * This is trying to re-encode all stored Vaccination Data (VID) after the app-id has changed.
      *
      * The app-id is used to encrypt the payload in identity management.
      * For whatever reason, if the app-id is changing for a user, then all entries in identity management need to become re-encrypted.
@@ -365,7 +366,7 @@ declare class Vaccinator {
      */
     search(searchTerm: string): Promise<Array<string>>;
     /**
-     * Store data in cache
+     * Store single data item in local cache
      *
      * Will throw an error on storage failure!
      * @private
@@ -375,15 +376,16 @@ declare class Vaccinator {
      */
     private _storeCache;
     /**
-     * Getdata from cache. Will return null if not found!
+     * Get single data item from cache.
      *
+     * Will return null if not found!
      * @private
      * @param {string} vid
      * @returns {Promise<string|null>}
      */
     private _retrieveCache;
     /**
-     * Removes one given entry from the cache.
+     * Removes given entries from the local cache.
      *
      * Will throw an error on storage failure!
      * @private
