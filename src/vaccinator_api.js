@@ -648,7 +648,7 @@ class Vaccinator {
 
         let appId = await this._db.getItem('appId-' + this._userIdentifier);
         if(this._password) {
-            appId = this._decrypt(appId, await this._string2cryptoKey(this._password));
+            appId = await this._decrypt(appId, await this._string2cryptoKey(this._password));
         }
         this._debug(this._debugging && "getAppId: Return app-id [" + this._appId + "]");
         this._appId = appId; // update memory
@@ -793,8 +793,8 @@ class Vaccinator {
                         }
 
                         try {
-                            e.data = this._decrypt(e.data, key, checksum);
-                            await this._storeCache(vid, e.data); // update local cache
+                            e.data = await this._decrypt(e.data, key, checksum);
+                            await this._storeCache(vid, e); // update local cache
                         } catch (error) {
                             console.error(`
                                 Unable to decrypt vData [${vid}] because used appId
@@ -856,10 +856,10 @@ class Vaccinator {
                         }
 
                         try {
-                            e.data = this._decrypt(e.data, key);
+                            e.data = await this._decrypt(e.data, key);
                         } catch (error) {
                             console.error(`
-                                Unable to decrypt vData [${vid}] because used appId
+                                Unable to decrypt vData [${vid}] because used password
                                 seems not the correct one or some crypto error occured!
                                 Origin error: [${error}]`
                             );
@@ -883,6 +883,7 @@ class Vaccinator {
      * This does not delete data from DataVaccinator Vault!
      *
      * @param {string|string[]} vids
+     * @returns {Promise<Boolean>} success
      */
     async wipe(vids) {
         if(!vids) {
@@ -891,6 +892,7 @@ class Vaccinator {
         vids = this._string2Array(vids);
 
         await this._removeCache(vids);
+        return true;
     }
 
     /**
@@ -969,8 +971,10 @@ class Vaccinator {
         const appIdKey = "appId-" + this._userIdentifier
             , appId = await this._db.getItem(appIdKey);
 
+        // clear the whole database
         await this._db.clear();
 
+        // restore AppId entries in local database
         await this._db.setItem(appIdKey, appId);
 
         if(token) {
@@ -1017,7 +1021,7 @@ class Vaccinator {
     // Cache functions
 
     /**
-     * Store data in cache
+     * Store single data item in local cache
      *
      * Will throw an error on storage failure!
      * @private
@@ -1033,8 +1037,9 @@ class Vaccinator {
     }
 
     /**
-     * Getdata from cache. Will return null if not found!
-     *
+     * Get single data item from cache. 
+     * 
+     * Will return null if not found!
      * @private
      * @param {string} vid
      * @returns {Promise<string|null>}
@@ -1046,11 +1051,16 @@ class Vaccinator {
 
         this._debug(this._debugging && `_retrieveCache: Retrieve vData for VID ${vid} from cache`);
 
-        return await this._db.getItem(vid);
+        const ret = await this._db.getItem(vid);
+        if (ret === undefined) { 
+            // not found (undefined) must return null
+            return null; 
+        }
+        return ret;
     }
 
     /**
-     * Removes one given entry from the cache.
+     * Removes given entries from the local cache.
      *
      * Will throw an error on storage failure!
      * @private
