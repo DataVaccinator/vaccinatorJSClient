@@ -2,12 +2,23 @@
 
 /*	constants
     ======================================================================= */
-const kMaxElipsedTime = 500
-    , kText = 'The quick brown fox jumps over the lazy dog'
-    , kHexRegex = /^[0-9a-fA-F]+$/;
+
+    // test configuration constants, adapt to your environment!
+    const kUsername = "testuser"                    // local username
+        , kPassword = "password"                    // local password (eg local IndexedDB)
+        , kServiceUrl = "http://127.0.0.1:8080"     // service provider URL
+        , kServiceProviderId = 1                    // service provider ID
+        , kServiceProviderPwd = "dv123";            // service provider password
+
+    // generic constants in use
+    const kMaxElapsedTime = 500 // milliseconds, warn if someting takes longer
+        , kText = 'The quick brown fox jumps over the lazy dog' // test content
+        , kHexRegex = /^[0-9a-fA-F]+$/ // RegEx to validate hex string
+        , appId = 'Rc-De_6nyCbb'; // a valid appId for testing
 
 /*	test functions
     ======================================================================= */
+
 async function v2() {
     console.info('Starting vaccinator direct test v2.');
 
@@ -23,30 +34,36 @@ async function v2() {
                 "profession":"Fry Cook","attending_physician":"Sandy Cheeks"
             }`
         }
-        , appId = 'Rc-De_6nyCbb'
         , cbc = 'aes-256-cbc:672eaee8d6f4ca4e5ef1b1a448f10493:95b9d5d5b13212072a9f2e203648d4a1d4107ae55f77cdc7fed2ceb50bb4be3a780f787dfc467e66a2964e78da274599' // => 'The quick brown fox jumps over the lazy dog'
         , gmc = 'aes-256-gcm:eadfe1c268182463747c081caef526c8:42c54b4dbfe1da299196ddb328ae4dc24c712797e206cb79935f25ddbc724cecdc09d20b165c0ecf80918e6aaa63026915b40d83bd65826b3629d3' // => 'The quick brown fox jumps over the lazy dog'
         , notExistingVid = 'dc2520e55dbc02d44a6ebc160cbffa62'
         , nonSense = '_nonSense';
 
     const v = new Vaccinator({
-        serviceUrl: 'http://127.0.0.1:8080',
-        userIdentifier: 'testuser',
-        password: 'password', // TODO: 'pässword' => appid
+        serviceUrl: kServiceUrl,
+        userIdentifier: kUsername,
+        password: kPassword, // TODO: 'pässword' => appid
         appId: appId,
         debugMode: false,
+        useCache: true,
         headers: {'cache-control': 'max-age=60'},
         searchFields: [ "firstname", "lastname", "address_street" ],
         directLogin: {
-            serviceProviderId: 1,
-            serviceProviderPwd: 'dv123'
+            serviceProviderId: kServiceProviderId,
+            serviceProviderPwd: kServiceProviderPwd
         },
     });
     await v.init();
 
+    if (v._useCache) {
+        console.info("wiping any cached values");
+        v.wipeCache();
+    }
+
     let tmp;
 
     // encrypt / decrypt
+    console.info("-------------- encrypt / decrypt --------------");
     let key = await v._getCryptoKey(); // AES-GCM test
     tmp = await _test(() => v._encrypt('data', key), r => /^aes-256-gcm:\w{32}:\w+$/.test(r), 'Result should match the regex!');
     await _test(() => v._decrypt(tmp, key), r => 'data' == r, 'Result does not match!');
@@ -60,10 +77,11 @@ async function v2() {
     _test(() => v._decrypt(gmc, key, '_eadfe1c268182463747c081caef526c8'), r => r, 'Result does not match!', true);
 
     key = await v._getCryptoKey('AES-CBC'); // AES-CBC test
-    await _test(() => v._decrypt(cbc, key), r => kText == r, 'Result does not match!');
+    await _test(() => v._decrypt(cbc, key), r => kText == r, 'Decrypted result does not match!');
 
 
     // hash
+    // console.info("-------------- hash --------------");
     // Vaccinator.__hash('Hallo').then(v => {
     //     _test(() => Vaccinator._hash('Hallo'), r => r == v, 'Not equal!');
     // });
@@ -75,84 +93,107 @@ async function v2() {
     // });
 
     // helper
+    console.info("-------------- helper --------------");
     await _test(() => v._generateRandom(16), r => ((tmp = r) && r.byteLength == 16), 'Array should be the same length!');
     await _test(() => v._buf2hex(tmp), r => kHexRegex.test(tmp = r), 'Result should match the regex!');
     await _test(() => v._hex2buf(tmp), r => (r instanceof Uint8Array), 'Result should be a Uint8Array!');
     await _test(() => Vaccinator._string2buffer(kText), r => kText == Vaccinator._buffer2string(r), 'Result should match!');
 
     // search internal
-    _test(() => v._searchHash('Hallo'), r => !!r, '!');
-    _test(() => v._searchHash(kText), r => r == '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should match the string!');
-    _test(() => v._searchHash(kText.substring(1)), r => r !== '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should not match the string!');
-    _test(() => v._searchHash('data', true), r => kHexRegex.test(r), 'Result should match the regex!');
-    _test(() => v._getSearchWords(vData), r => (r && r.length == 4), 'Result should math the search fields length!');
+    console.info("-------------- search internal --------------");
+    await _test(() => v._searchHash('Hallo'), r => !!r, '!');
+    await _test(() => v._searchHash(kText), r => r == '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should match the string!');
+    await _test(() => v._searchHash(kText.substring(1)), r => r !== '4919423bdcc82dae251d434e90992d15c3320a95597222b616d11b17e80fa1656bcb544a3147e793012298', 'Result should not match the string!');
+    await _test(() => v._searchHash('data', true), r => kHexRegex.test(r), 'Result should be hex!');
+    await _test(() => v._getSearchWords(vData), r => (r && r.length == 4), 'Result should math the search fields length!');
 
     // store / cache
-    // _test(() => v._storeCache('1', vData), r => !r, 'Result should not fail!');
-    // _test(() => v._saveAppId(appId), r => !r, 'Result should not be null!');
-    // _test(() => v._retrieveCache('1'), r => !!r, 'Result should not be null!');
-    // _test(() => v._retrieveCache('_1'), r => !r, 'Result should be null!');
-    // _test(() => v._removeCache(['1', '2']), r => !r, 'Result should not fail!');
+    if (v._useCache) {
+        console.info("-------------- store / cache --------------");
+        await _test(() => v._storeCache('1', vData), r => !r, 'Storing should not fail!');
+        await _test(() => v._saveAppId(appId), r => !r, 'Saving AppId should not fail!');
+        await _test(() => v._retrieveCache('1'), r => !!r, 'Result should be some data!');
+        await _test(() => v._retrieveCache('_1'), r => !!r, 'Result should be null!', true);
+        await _test(() => v._removeCache(['1', '2']), r => !r, 'Result should not fail!');
+    } else {
+        console.info("-------------- skip store / cache test (useCache=false)--------------");
+    }
 
-    // // public functions
-    await _test(() => v.new(vData), r => _pushVid(r), 'Result should not be null!'); // !!!! needed for further tests
+    // public functions
+    console.info("-------------- new --------------");
+    await _test(() => v.new(vData), r => { if (!!r) { _pushVid(r);} return !!r; }, 'Result should be VID!'); // !!!! needed for further tests
 
-    // // get
-    _test(() => v.getServerInfo(), r => !!r, 'Result should not be null!');
-    _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should math!');
-    _test(() => v.get(_lastVid, true), r => _validateMap(r), 'Result should match!');
-    _test(() => v.get(notExistingVid), r => _validateMap(r, 'NOTFOUND'), 'Result should not fail!');
-    _test(() => v.get(notExistingVid, true), r => _validateMap(r, 'NOTFOUND'), 'Result should not fail!');
-    _test(() => v.get(nonSense, true), r => r, 'Result should fail!', true);
-    _test(() => v.get([_lastVid, notExistingVid]), r => r.size == 2, 'Result should match!');
-    _test(() => v.get([_lastVid, notExistingVid], true), r => r.size == 2, 'Result should match!');
-    _test(() => v.get([_lastVid, nonSense]), r => r, 'Result should fail!', true);
+    // get
+    console.info("-------------- get --------------");
+    await _test(() => v.getServerInfo(), r => !!r, 'Result should not be null!');
+    await _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should match!');
+    await _test(() => v.get(_lastVid, true), r => _validateMap(r), 'Result should match!');
+    await _test(() => v.get(notExistingVid), r => _validateMap(r, 'NOTFOUND'), 'Result should be NOTFOUND!');
+    await _test(() => v.get(notExistingVid, true), r => _validateMap(r, 'NOTFOUND'), 'Result should be NOTFOUND!');
+    await _test(() => v.get(nonSense, true), r => r, 'Result should fail!', true);
+    await _test(() => v.get([_lastVid, notExistingVid]), r => r.size == 2, 'Result should be two entries!');
+    await _test(() => v.get([_lastVid, notExistingVid], true), r => r.size == 2, 'Result should be two entries!');
+    await _test(() => v.get([_lastVid, nonSense]), r => r, 'Result should fail!', true);
 
-    // // update
+    // update
+    console.info("-------------- update --------------");
     vData.data =    '{"firstname":"Dr. Patrick","lastname":"Star",'+
                     '"address_street":"Bikini-Street"}';
-    await _test(() => v.update(_lastVid, vData), r => !r, 'Result should not fail!');
-    _test(() => v.update('_wrongVid', vData), r => !r, 'Result should failed!', true);
+    await _test(() => v.update(_lastVid, vData), r => !r, 'Update should not fail!');
+    await _test(() => v.update('_wrongVid', vData), r => !r, 'Update should have failed!', true);
 
-    // // search
-    _test(() => v.search('pat'), r => r.length == 1, 'Wrong number of results!');
-    _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
-    _test(() => v.search('patr sta'), r => r.length == 1, 'Wrong number of results!');
-    _test(() => v.search('patr tes'), r => r.length == 0, 'Wrong number of results!');
-    _test(() => v.search('Bikini Street'), r => r.length == 1, 'Wrong number of results!');
-    _test(() => v.search('Dr. Patrick'), r => r.length == 1, 'Wrong number of results!');
+    // search
+    console.info("-------------- search --------------");
+    await _test(() => v.search('pat'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
+    await _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
+    await _test(() => v.search('patr sta'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
+    await _test(() => v.search('patr tes'), r => r.length == 0, 'Wrong number of results!');
+    await _test(() => v.search('Bikini Street'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
+    await _test(() => v.search('Dr. Patrick'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
 
-    // // publish
-    await _test(() => v.publish(vData, 'password', 5), r => _pushVid(r), 'Result should not be null!');
-    // TODO: Fails here!
-    await _test(() => v.getPublished(_lastVid, 'password'), r => (r && r[_lastVid].status == "OK"), 'Result should not be empty!');
-    await _test(() => v.getPublished(_lastVid, '_password'), r => !!r, 'Result should fail!', true);
+    // wipe
+    if (v._useCache) {
+        console.info("-------------- wipe --------------");
+        await _test(() => v.wipe(_lastVid), r => r, 'Wiping should not return error!');
+        await _test(() => v._retrieveCache(_lastVid), r => r === null, 'Result should be null!');
+        await _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should match!'); // will trigger re-download into cache
+        await _test(() => v._retrieveCache(_lastVid), r => !!r, 'Result should not be null!');
+    } else {
+        console.info("-------------- skip wipe testing (useCache=false) --------------");
+    }
 
-    // // app-Id
-    // await _test(() => v.getAppId(), r => appId == r, 'Result should mathc!');
-    // await _test(() => v.getAppId(true), r => appId == r, 'Result should match!');
-    // await _test(() => Vaccinator.validateAppId('Rc-De_6nyCbb'), r => !!r, 'Result should not be false!');
-    // await _test(() => Vaccinator.validateAppId(nonSense), r => !r, 'Result should not be true!');
+    // publish
+    console.info("-------------- publish --------------");
+    await _test(() => v.publish(vData, 'password', 5), r => _pushVid(r), 'Publish should return VID!');
+    await _test(() => v.getPublished(_lastVid, 'password'), r => _validateMap(r), 'getPublished should not be empty!');
+    console.log("%cNext call will produce a crypto error in this log, which is expected!", "color: #006600; font-weight: bold;");
+    await _test(() => v.getPublished(_lastVid, '_password'), r => _validateMap(r), 'getPublished should fail!', true);
+    await _test(() => v.get(_lastVid), r => _validateMap(r), 'get with publish vid should fail!', true);
 
-    // // wipe
-    // await _test(() => v.wipe(_lastVid), r => !r, 'Result should fail!');
-    // _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should match!'); // result should be fetched from local storage.
+    // app-Id
+    console.info("-------------- appId --------------");
+    await _test(() => v.getAppId(), r => appId == r, 'Result should match!');
+    await _test(() => v.getAppId(true), r => appId == r, 'Result should match!');
+    await _test(() => Vaccinator.validateAppId(appId), r => !!r, 'Result should not be false!');
+    await _test(() => Vaccinator.validateAppId(nonSense), r => !r, 'Result should not be true!');
 
     // delete
-    // await _test(() => v.delete(nonSense), r => !r, 'Result should fail!', true);
-    // await _test(() => v.delete(nonSense), r => !r, 'Result should fail!', true);
-    // await _test(() => v.delete(notExistingVid), r => !r, 'Should not fail!');
+    console.info("-------------- delete --------------");
+    await _test(() => v.delete(nonSense), r => !r, 'Deleting nonsense should fail!', true);
+    await _test(() => v.delete(notExistingVid), r => !r, 'Deleting non existing VID should not fail!');
 
     // changeAppId
+    // console.info("-------------- change AppId --------------");
     // tmp = await Vaccinator.__hash('new-app-id');
     // await _test(() => v.wipeCache(), r => r, 'Result should be true!');
     // await _test(() => v.changeAppId(_lastVid, appId, 'new-app-id' + tmp.slice(-2)), r => r == 1, 'Result should match length!');
     // await _test(() => v.wipeCache(), r => r, 'Result should be true!');
     // _test(() => v.get(_lastVid), r => _validateMap(r), 'Result should be valid!');
 
-    await _wait(kMaxElipsedTime); // wait for uncompleted functions
+    await _wait(kMaxElapsedTime); // wait for uncompleted functions
 
     // clean all created vid
+    console.info("-------------- cleanup --------------");
     if(_vids.length) {
         await _test(() => v.delete(_vids), r => !r, 'Result should not fail!');
     }
@@ -178,8 +219,8 @@ async function v1() {
             '}';
 
     const v = new vaccinator();
-    await _test(() => v.init("http://192.168.64.6:80", "kristof", "Rc-De_6nyCbb", "password", false));
-    await _test(() => v.enableDirectLogin(1, "vaccinator"), b => b === true, 'Should be true!');
+    await _test(() => v.init(kServiceUrl, kUsername, appId, kPassword, false));
+    await _test(() => v.enableDirectLogin(kServiceProviderId, kServiceProviderPwd), b => b === true, 'Should be true!');
     await _test(() => v.setHeaders( { 'Cache-Control': 'max-age=60' } ), b => b === true, 'Should be true!');
     await _test(() => v.enableSearchFunction( [ "firstname", "lastname", "address_street" ] ), b => b === true, 'Should be true!');
     await _test(() => v.getServerInfo(), r => r, 'Result should not be null!');
@@ -292,7 +333,7 @@ function _pushVid(vid) {
  * @param {string?} reason Reason, if validate should return false.
  * @param {boolean?} shouldFail If this function will throw an expected error, pass true.
  */
-async function _test(f, validate, reason, shouldFail) {
+async function _test(f, validate, reason, shouldFail = false) {
 
     return new Promise(async (resolve) => {
         const fName = f.toString().substring(6)
@@ -313,24 +354,26 @@ async function _test(f, validate, reason, shouldFail) {
             } else {
                 success = validate.call(validate, (result = r));
             }
-            if(shouldFail && success) {
-                console.assert(false, `${fName} should fail but it doesn't!`);
+            if(shouldFail) {
+                if (success) {
+                    console.assert(false, `${fName} should fail but it doesn't!`);
+                }
             } else {
                 console.assert(success, `${fName} failed!`, reason, result);
             }
         } catch (error) {
-            if(!shouldFail) { // we expect a failure
+            if(shouldFail == false) { // we expected a failure
                 console.assert(false, `${fName} failed!`, error);
             }
         } finally {
             const timeEnd = Date.now()
                 , diff = timeEnd - timeStart;
 
-            if(diff > kMaxElipsedTime) {
-                console.warn(`${fName} is slower then expected. Time elipsed more then ${kMaxElipsedTime}ms.`);
+            if(diff > kMaxElapsedTime) {
+                console.warn(`${fName} is slower then expected. Time elapsed more then ${kMaxElapsedTime}ms.`);
             }
 
-            console.log(`${r instanceof Promise ? '~>' : ''} ${fName} passed. Elipsed time: ${diff}ms.`);
+            console.log(`${r instanceof Promise ? '~>' : ''} ${fName} passed. Elapsed time: ${diff}ms.`);
 
             _processes.splice(_processes.indexOf(fName), 1);
             resolve(result);
