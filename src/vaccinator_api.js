@@ -146,7 +146,7 @@ class Vaccinator {
 
         // value check
         if(!this._serviceUrl || !this._userIdentifier) {
-            throw this._onError(new EvalError('init: url and userName parameter are mandatory'), kVaccinatorInvalidErrorCode);
+            throw this._onError(new EvalError('constructor: serviceUrl and userIdentifier parameters are mandatory'), kVaccinatorInvalidErrorCode);
         }
     }
 
@@ -158,7 +158,11 @@ class Vaccinator {
         if(this._appId) {
             // called async. But it's ok here, because the app-Id is cached in memory
             // before it is completly written to the storage.
-            this._saveAppId(this._appId);
+            if (await Vaccinator.validateAppId(this._appId)) {
+                this._saveAppId(this._appId);
+            } else {
+                throw this._onError(new EvalError('init: provided appId is not valid'), kVaccinatorInvalidErrorCode);
+            }
         }
 
         this._debug(this._debugging && "Initialization done");
@@ -192,7 +196,7 @@ class Vaccinator {
      */
     _debug(message) {
         if (!message) { return; }
-        console.debug("VACCINATOR: " + message);
+        console.debug("%cVACCINATOR: " + message, "color: #666666;");
     }
 
     /**
@@ -620,9 +624,9 @@ class Vaccinator {
     }
 
     /**
-     * Create a new PID entry.
+     * Create a new VID entry.
      *
-     * The vaccinationData is PID in some JSON encoded dataset. It may contain personal information of a person (PID). This is returned later by the {@link get} function.
+     * The vaccinationData is VID in some JSON encoded dataset. It may contain personal information of a person (VID). This is returned later by the {@link get} function.
      *
      * @param {VData} vData
      * @returns {Promise<string>} New created vid.
@@ -656,7 +660,7 @@ class Vaccinator {
     }
 
     /**
-     * Create a new PID entry for publishing.
+     * Create a new VID entry for publishing.
      *
      * @param {VData} vData
      * @param {string} password
@@ -668,7 +672,7 @@ class Vaccinator {
     }
 
     /**
-     * Update vaccinationData of an existing PID entry.
+     * Update vaccinationData of an existing VID entry.
      *
      * @param {string} vid
      * @param {VData} vData
@@ -879,7 +883,7 @@ class Vaccinator {
     }
 
     /**
-     * Wipe the given PID entry from the local cache.
+     * Wipe the given VID entry from the local cache.
      * This does not delete data from DataVaccinator Vault!
      *
      * @param {string|string[]} vids
@@ -896,7 +900,7 @@ class Vaccinator {
     }
 
     /**
-     * This is trying to re-encode all stored Vaccination Data (PID) after the app-id has changed.
+     * This is trying to re-encode all stored Vaccination Data (VID) after the app-id has changed.
      *
      * The app-id is used to encrypt the payload in identity management.
      * For whatever reason, if the app-id is changing for a user, then all entries in identity management need to become re-encrypted.
