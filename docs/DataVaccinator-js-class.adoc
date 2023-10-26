@@ -19,15 +19,13 @@ Include the DataVaccinator JavaScript API and all needed classes into your exist
 [source,html]
 ----
 <!-- start vaccinator include -->
-<script src="localforage.min.js"></script>
 <script src="vaccinator_api.js"></script>
 <!-- end vaccinator include -->
 ----
 
 Now, there is a new class *Vaccinator* available.
 
-Please note that the _localforage.min.js_ is for local database access. 
-The _vaccinator_api.js_ is the final class code you want to use.
+Please note that the _vaccinator_api.js_ is the final class code you want to use.
 
 All class functions except the <<validateAppId>> function are asynchronous and return a promise.
 

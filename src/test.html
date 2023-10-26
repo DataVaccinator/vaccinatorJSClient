@@ -2,187 +2,23 @@
 <html>
   <head>
     <title>Vaccinator Developer Class test</title>
-    <meta charset="utf-8">  
+    <meta charset="utf-8">
     <style></style>
     <!-- start vaccinator include -->
-    <script src="localforage.min.js"></script>
     <script src="vaccinator_api.js"></script>
     <!-- end vaccinator include -->
+
+
+    <script src="./test/vaccinator_direct_test.js"></script>
   </head>
   <body>
-    <h1>Vaccinator Service API Class test -> Proxy connection</h1>
+    <h1>Vaccinator Service API Class test -> Direct connection</h1>
     <p>Check console log for results and information.</p>
-
-    <script>
-      const appid = "Rc-De_6nyCbb"; // Adapt to your needs. My APP-ID was 123456789
-      
-      example(); // call testing function (must be a function because of async)
-      
-      async function example() {
-        try {
-          var v = new vaccinator();
-          // Set URL of proxy system (to avoid Same Origin Policy issues)
-          await v.init("http://vaccinator.vsdevel.de.regify.com/service.php", 
-                               "volker", appid, "password", true);
-
-          // !!! Set some additional header for all network calls
-          v.setHeaders( { 'Cache-Control': 'max-age=60' } );
-          
-          // !!! Enable search function using some vData fields
-          v.enableSearchFunction( [ "firstname", "lastname", "address_street" ] );
-          
-          // !!! Get some info from the server
-          const serverInfo = await v.getServerInfo();
-          console.log("Server-Info: " + JSON.stringify(serverInfo));
-
-          console.log("\n \n ");
-
-          // !!! Create test data vData
-          var vData = '';
-          vData = '{"firstname":"Spongebob","lastname":"Square Pants", '+
-                  '"Gender":"male","address_street":"Bikinistreet", '+
-                  '"address_number":"42","address_city":"Bikini Bottom", '+
-                  '"address_zip":"12345", "address_country":"Bikiniland", '+
-                  '"address_phone":"","address_mail":"spongebob@bikinibottom.water", '+
-                  '"company_location":"Crusty Krab", "date_og_birth":"01.02.1992", '+
-                  '"profession":"Fry Cook", "attending_physician":"Sandy Cheeks"'+
-                  '}';
-
-          // !!! test new() function
-          var vid = await v.new(vData);  
-          if (vid === undefined) {
-            console.error("Result is undefined!");
-          } else {
-            console.log("The new VID is " + vid + "\n \n ");
-          }
-
-          // !!! test update() function
-          vData = '{"firstname":"Dr. Patrick","lastname":"Star",'+
-                  '"address_street":"Bikini-Street"}';
-          vid = await v.update(vid, vData);
-
-          console.log("Successfully updated VID " + vid + "\n \n ");
-
-          // !!! test wipe() function
-          var vids = await v.wipe(vid + " " + "dc2520e55dbc02d44a6ebc160cbffa62");
-          console.log("Wiped data from cache (force reload)" + "\n \n ");
-
-          // !!! test get() function
-          // use some unknown VID to simulate "not found" and trigger vaccinator call
-          var toGet = [ vids[0], "0d52f1b0a314fba7d45e87ca5bf5e654" ];
-          var vDataArray = await v.get(toGet);
-          console.log("Successfully received vData object array from server:");
-          console.log(vDataArray);
-          if (vDataArray["0d52f1b0a314fba7d45e87ca5bf5e654"].status != "NOTFOUND") {
-            console.error("Found object with invalid VID?");
-          }
-          if (vDataArray[vids[0]].status != "OK") {
-            console.error("Missing stored data of VID "+vids[0]);
-          }
-          console.log("\n \n ");
-
-          // get again from cache
-          vDataArray = await v.get(toGet);
-          console.log("Successfully received vData object array (should be from cache):");
-          console.log(vDataArray);
-          if (vDataArray["0d52f1b0a314fba7d45e87ca5bf5e654"].status != "NOTFOUND") {
-            console.error("Found object with invalid VID?");
-          }
-          if (vDataArray[vids[0]].status != "OK") {
-            console.error("Missing stored data of VID "+vids[0]);
-          }
-          if (v.fromCache.length != 1) {
-            console.error("Data for "+vids[0]+" should come from cache, but fromCache counter is != 1 ("+v.fromCache.length+")");
-          }
-          console.log("\n \n ");
-          
-          // !!! test search() function
-          vids = await v.search("pat");
-          console.log("Found using 'pat': " + JSON.stringify(vids));
-          if (vids.length !== 1) { console.error("Wrong number of results!"); }
-          vids = await v.search("nonsense");
-          console.log("Found using 'nonsense': " + JSON.stringify(vids));
-          if (vids.length !== 0) { console.error("Wrong number of results!"); }
-          vids = await v.search("patr sta");
-          console.log("Found using 'patr sta': " + JSON.stringify(vids));
-          if (vids.length !== 1) { console.error("Wrong number of results!"); }
-          vids = await v.search("patr tes");
-          console.log("Found using 'patr tes': " + JSON.stringify(vids));
-          if (vids.length !== 0) { console.error("Wrong number of results!"); }
-          vids = await v.search("Bikini Street");
-          console.log("Found using 'Bikini Street': " + JSON.stringify(vids));
-          if (vids.length !== 1) { console.error("Wrong number of results!"); }
-          vids = await v.search("Dr. Patrick");
-          console.log("Found using 'Dr. Patrick': " + JSON.stringify(vids));
-          if (vids.length !== 1) { console.error("Wrong number of results!"); }
-
-          console.log("\n \n ");
-
-          // !!! test delete() function
-          vids = await v.delete(vid);
-          if (vids.length != 1) {
-            console.error("Failed deletion of VID "+vid);
-          } else {
-            console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
-          }
-
-          console.log("\n \n ");
-
-          // !!! test wipeCache() function
-          // A weekday token will force the cache to become
-          // wiped every day (just as an example).
-          const token = "token-weekday-" + new Date().getDay();
-          var cacheWiped = await v.wipeCache(token);
-          if (cacheWiped) {
-            console.log("Cache wiped");
-          } else {
-            console.log("Cache NOT wiped");
-          }
-
-          console.log("\n \n ");
-
-          // !!! test publish() function
-          vData = '{"firstname":"Sandy","lastname":"Cheeks", '+
-                  '"Gender":"female","address_street":"Bikinistreet", '+
-                  '"address_number":"8","address_city":"Bikini Bottom", '+
-                  '"address_zip":"12345", "address_country":"Bikiniland"'+
-                  '}';
-          var vid = await v.publish(vData, "myPassword", 5);
-          if (!vid) {
-            console.error("Publish failed!");
-          } else {
-            console.log("The new VID is " + vid);
-          }
-
-          console.log("\n \n ");
-
-          // !!! test getpublished() function
-          // add some unknown VID to simulate "not found" and trigger vaccinator call
-          var toGet = [ vid, "ff52f1b0a314fba7d45e87ca5bf5e654" ];
-          var vDataArray = await v.getPublished(toGet, "myPassword");
-          console.log("Successfully received vData object array:");
-          console.log(vDataArray);
-          if (vDataArray[vid].status != "OK") {
-            console.error("Missing stored data of published VID "+vid);
-          }
-
-          console.log("\n \n ");
-
-          // !!! test delete() function
-          vids = await v.delete(vid);
-          console.log("Successfully removed the entry for vid(s) " + JSON.stringify(vids));
-
-          console.log("\n \n ");
-          
-          // Done
-          console.log("Test finished");
-
-        } catch (e) {
-          // catch any vaccinator class errors from here
-          console.log("\n \n ");
-          console.error("CATCHED ERROR:", e);
-        }
-      }
-    </script>
+    <br />
+    <button onclick="v2()" style="background-color: #00aaff; padding: 6px 12px;">Run v2</button>
+    <br />
+    <br />
+    <br />
+    <button onclick="v1()">Run v1</button>
   </body>
 </html>
