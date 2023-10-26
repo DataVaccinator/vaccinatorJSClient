@@ -146,11 +146,13 @@ The *vaccinationData* is PID in some JSON encoded dataset. It may contain person
 |Description:
 |Retrieve the vaccinationData of one or more given VID.
 |Parameters:
-|(array) multiple VIDs or (string) VID
+|(array) multiple VIDs or (string) VID, (bool) force (optional)
 |Return value:
 |(promise) (object array) vaccinationData
 |Info:
 a|The submitted *VID* is the identifying Vaccination ID (previously returned by <<new>>). Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
+
+The *force* option allows you to override the local cache and forces a request to the DataVaccinator Valult instead of trying the local cache. Default is false.
 
 The returned payload is an associative object array with the *VID* as key and some object as value. The value object is having two fields: *status* (OK or NOTFOUND) and *data* (the Vaccination Data). If *status* is NOTFOUND, data is false.
 
@@ -408,15 +410,17 @@ Refer to <<get>> function for further details on the returned format.
 
 == Properties
 
-There are a few public class properties that can be useful:
+There are a few public class properties that can be useful to get state information from the current Vaccinator object:
 
-debugging:: If *true*, the debugging gets activated. With *false* it is deactivated. By this, you can turn on/off debugging messages at any time.
+_debugging:: If *true*, the debugging gets activated. With *false* it is deactivated. By setting this, you can turn on/off debugging messages at any time.
 
-useCache:: Set to *false* directly after calling init() to disable any local caching. We suggest to not turn caching on/off during a working session. Instead, use it once after calling init() function.
+_useCache:: If set to *false*, local caching is disabled. We suggest to not turn caching on/off during a working session. Instead, set it in the constructor.
 
-appId:: Can get used to read the currently used App-ID. We suggest to not edit/write this value.
+_appId:: Can get used to read the currently used App-ID. We suggest to not edit/write this value.
 
-fromCache:: After you called the <<get>> function, this property contains an array with the vids that were retrieved from the local cache. If this counts 0 (empty array), all data was requested from the server. It allows you to verify cache usage.
+_searchFields:: Array of currently used search field configuration. We suggest to not edit/write this value.
+
+fromCache:: After you called the <<get>> function, this property contains an array with the vids that were retrieved from the local cache. If this counts 0 (empty array), all data was requested from the server. It allows you to verify cache usage, for example in testing.
 
 == Error handling
 
