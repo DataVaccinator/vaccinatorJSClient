@@ -149,38 +149,31 @@ async function _test(f, validate, reason, shouldFail = false) {
 }
 
 /**
- * Promise pool handler
- * https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b
+ * Enhanced promise pool handler as replacement for Promise.All()
+ * @see https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b?permalink_comment_id=3591045#gistcomment-3591045
  * 
- * @param {number} n Number of concurrent calls
- * @param {Array} list Array of functions to call
+ * @param {Array} queue Array of async functions to call
+ * @param {number} concurrency Number of concurrent calls
  * @returns 
  */
-function promiseAllStepN(n, list) {
-    let tail = list.splice(n)
-    let head = list
-    let resolved = []
-    let processed = 0
-    return new Promise(resolve=>{
-      head.forEach(x=>{
-        let res = x()
-        resolved.push(res)
-        res.then(y=>{
-          runNext()
-          return y
-        })
-      })
-      function runNext(){
-        if(processed == tail.length){
-          resolve(Promise.all(resolved))
-        }else{
-          resolved.push(tail[processed]().then(x=>{
-            runNext()
-            return x
-          }))
-          processed++
-        }
+async function PromiseAll(queue, concurrency) {
+    let index = 0;
+    const results = [];
+  
+    // Run a pseudo-thread
+    const execThread = async () => {
+      while (index < queue.length) {
+        const curIndex = index++;
+        // Use of `curIndex` is important because `index` may change after await is resolved
+        results[curIndex] = await queue[curIndex]();
       }
-    })
-}
-Promise.allConcurrent = n => list =>  promiseAllStepN(n, list)
+    };
+  
+    // Start threads
+    const threads = [];
+    for (let thread = 0; thread < concurrency; thread++) {
+        threads.push(execThread());
+    }
+    await Promise.all(threads);
+    return results;
+};

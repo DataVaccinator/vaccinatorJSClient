@@ -6,7 +6,7 @@
 async function test() {
     _headline("Starting vaccinator change AppId test");
 
-    const numberOfDatasets = 5; // number of datasets to test this function with
+    const numberOfDatasets = 10; // number of datasets to test this function with
 
     /**@type {vData} */ // TODO: Umlaute & Sonderzeichen & Nur UTF-8
     const vData = {
@@ -61,7 +61,7 @@ async function test() {
     for (var i = 0; i < numberOfDatasets; i++) {
       promises.push(() => v.new(vData));
     }
-    var vids = await Promise.allConcurrent(5)(promises);
+    var vids = await PromiseAll(promises, 5);
 
     console.log("Created VIDs: ", vids);
 
