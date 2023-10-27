@@ -907,6 +907,7 @@ class Vaccinator {
      * For whatever reason, if the app-id is changing for a user, then all entries in identity management need to become re-encrypted.
      * Obviously, this is not to be done on identity management place to protect the data.
      * So it must be done locally.
+     * 
      * @param {string|string[]} vids
      * @param {string} oldAppId
      * @param {string} newAppId
@@ -926,32 +927,31 @@ class Vaccinator {
 
         return new Promise(async (resolve, reject) => {
 
-            const vDataMap = await this.get(vids) // vDataArray should contain absolut all vData to re-encrypt.
-                , tmpVaccinator = new Vaccinator(Object.assign(this._config, {appId: newAppId})) // copy old config with new app-Id.
-                , promises = [];
-            let affectedCount = 0;
-            tmpVaccinator.init();
+            // copy old config with newAppId
+            const tmpVaccinator = new Vaccinator(Object.assign(this._config, {appId: newAppId}));
+            await tmpVaccinator.init();
 
+            // create jobs in array
+            var promises = [];
+            var affectedCount = 0;
             for (let i = 0; i < vids.length; i++) {
-                const vid = vids[i]
-                    , e = vDataMap.get(vid);
-
-                if(e?.status === "OK") {
-                    this._debug(this._debugging && `Store new dataset for [${vid}]`);
-                    promises.push(
-                        tmpVaccinator.update(vid, e)
-                        .then(() => {affectedCount++;})
-                    );
-                } else {
-                    console.warn(`Failed retrieving vData for VID [${vid}: ${e}] (no data?).`);
-                }
+                promises.push(async () => { 
+                    let vid = vids[i];
+                    let pid = await this.get(vid);
+                    let vData = pid?.get(vid);
+                    if (vData?.status === "OK") {
+                        await tmpVaccinator.update(vid, vData);
+                        affectedCount++;
+                    } else {
+                        console.warn(`Failed retrieving vData for VID [${vid}: ${vData}] (no data, already processed?).`);
+                    }
+                });
             }
 
-            Promise.all(promises)
-            .then(async _ => {
-                await this._saveAppId(newAppId);
-                resolve(affectedCount);
-            })
+            await Vaccinator.PromiseAll(promises, 25); // max 25 promises at once
+
+            await this._saveAppId(newAppId);
+            resolve(affectedCount);
         });
 
     }

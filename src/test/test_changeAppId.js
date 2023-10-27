@@ -6,7 +6,10 @@
 async function test() {
     _headline("Starting vaccinator change AppId test");
 
-    const numberOfDatasets = 10; // number of datasets to test this function with
+    // number of datasets to test this function with
+    // -> successfully tested with 20.000 (needed 5.3 Minutes to re-encrypt with cache) 
+    //    10/2023 by VS
+    const numberOfDatasets = 10;
 
     /**@type {vData} */ // TODO: Umlaute & Sonderzeichen & Nur UTF-8
     const vData = {
@@ -56,12 +59,12 @@ async function test() {
     // }
     // var vids = await Promise.all(promises)
 
-    // Using pAll promise helper function -> Max 5 calls at the same time. Even > 2000 datasets are no problem
+    // Using pAll promise helper function -> Max 5 calls at the same time. Even > 2000 datasets are no problem.
     var promises = []; // array of function calls
     for (var i = 0; i < numberOfDatasets; i++) {
       promises.push(() => v.new(vData));
     }
-    var vids = await Vaccinator.PromiseAll(promises, 5);
+    var vids = await Vaccinator.PromiseAll(promises, 25); // max 25 promises at once
 
     console.log("Created VIDs: ", vids);
 
