@@ -354,7 +354,8 @@ class Vaccinator {
         if(!data || !key) { throw this._onError(new EvalError('Data and key are mandatory!')); }
 
         const iv = this._generateRandom(16); // 128 bits iv
-        this._debug(this._debugging && `_encrypt: Encrypt with key [${this._buf2hex(key)}] and iv [${this._buf2hex(iv)}]`);
+
+        this._debug(this._debugging && `_encrypt: Encrypt with key [${this._buf2hex(await window.crypto.subtle.exportKey("raw", key))}] and iv [${this._buf2hex(iv)}]`);
 
         const cipher = new Uint8Array(await window.crypto.subtle.encrypt({name: 'AES-GCM', iv: iv}, key, Vaccinator._string2buffer(data)));
 
@@ -402,7 +403,7 @@ class Vaccinator {
             data = this._hex2buf(parts[2]);
         }
 
-        this._debug(this._debugging && `_decrypt: Decrypt with key [${this._buf2hex(key)}] and iv [${this._buf2hex(iv)}] and checksum [${verifyChecksum}]`);
+        this._debug(this._debugging && `_decrypt: Decrypt with key [${this._buf2hex(await window.crypto.subtle.exportKey("raw", key))}] and iv [${this._buf2hex(iv)}] and checksum [${verifyChecksum}]`);
 
         let cipher;
 
@@ -443,7 +444,7 @@ class Vaccinator {
     async _string2cryptoKey(text, mode = 'AES-GCM') {
         const hash = await Vaccinator.__hash(text)
             , buffer = this._hex2buf(hash);
-        return await window.crypto.subtle.importKey('raw', buffer, mode, false, ['encrypt', 'decrypt']);
+        return await window.crypto.subtle.importKey('raw', buffer, mode, true, ['encrypt', 'decrypt']);
     }
 
     /**
@@ -929,6 +930,7 @@ class Vaccinator {
                 , tmpVaccinator = new Vaccinator(Object.assign(this._config, {appId: newAppId})) // copy old config with new app-Id.
                 , promises = [];
             let affectedCount = 0;
+            tmpVaccinator.init();
 
             for (let i = 0; i < vids.length; i++) {
                 const vid = vids[i]
@@ -1073,7 +1075,7 @@ class Vaccinator {
      */
     async _removeCache(vids) {
         await this._db.removeItems(vids);
-        this._debug(this._debugging && `_removeCache: Removed payload for VID(s) [${JSON.stringify(vids)}] from cache`);
+        this._debug(this._debugging && `_removeCache: Removed payload for VID(s) ${JSON.stringify(vids)} from cache`);
     }
 }
 
