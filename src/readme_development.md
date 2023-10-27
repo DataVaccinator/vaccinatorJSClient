@@ -1,10 +1,12 @@
 # Setup development environment
 
+THIS IS FOR VOLKER SCHMID TEST ENVIRONMENT ONLY!
+
 If you like to test the js client, you may want to use the test.html from this folder. But same origin policy will make it impossible.
 
 Also, to test the JS class you need to simulate a service provider who forwards all requests to the vaccinator service.
 
-JS Client ⇔ Service Provider ⇔ vaccinator
+`JS Client ⇔ Service Provider ⇔ vaccinator vault`
 
 I solved it by adapting my apache config for the vaccinator site. I included both the service.php and the *src/* JavaScript folder using vaccinator directive. Here is my adapted apache config (from */etc/apache2/sites-available/*):
 
