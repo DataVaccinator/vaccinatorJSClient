@@ -442,7 +442,7 @@ class Vaccinator {
      * @returns {Promise<CryptoKey>}
      */
     async _string2cryptoKey(text, mode = 'AES-GCM') {
-        const hash = await Vaccinator.__hash(text)
+        const hash = await Vaccinator._hash(text)
             , buffer = this._hex2buf(hash);
         return await window.crypto.subtle.importKey('raw', buffer, mode, true, ['encrypt', 'decrypt']);
     }
@@ -496,7 +496,7 @@ class Vaccinator {
 
         const letters = word.toLowerCase().split("");
         for (let l of letters) {
-            h = await Vaccinator.__hash(l + h + this._appId);
+            h = await Vaccinator._hash(l + h + this._appId);
             searchHash += h.slice(0, 2);
         }
         if (withRandom) {
@@ -1130,23 +1130,9 @@ Vaccinator._buffer2string = (bytes) => {
  * @private
  * @static
  * @param {string} text
- * @returns {string} hex encoded
- * @deprecated use {@link Vaccinator.__hash} instead.
- */
-Vaccinator._hash = (text) => {
-    return forge_sha256(text);
-}
-
-/**
- * Calculate SHA256 from some given string and
- * return hex encoded hash.
- *
- * @private
- * @static
- * @param {string} text
  * @returns {Promise<string>} hex encoded
  */
-Vaccinator.__hash = async (text) => {
+Vaccinator._hash = async (text) => {
     const shaBuffer = new Uint8Array(await window.crypto.subtle.digest('SHA-256', Vaccinator._string2buffer(text)));
 
     const pad = '0' // memory optimizations
@@ -1174,7 +1160,7 @@ Vaccinator.validateAppId = async (appId) => {
     }
 
     const cs = appId.slice(-2) // CheckSum from given AppId
-        , cipher = await Vaccinator.__hash(appId.slice(0, appId.length - 2)) // hash from AppId - checksum
+        , cipher = await Vaccinator._hash(appId.slice(0, appId.length - 2)) // hash from AppId - checksum
         , calcCs = cipher.slice(-2); // calculated checksum
     return (cs === calcCs); // must be identical
 }
