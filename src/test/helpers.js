@@ -147,33 +147,3 @@ async function _test(f, validate, reason, shouldFail = false) {
         }
     });
 }
-
-/**
- * Enhanced promise pool handler as replacement for Promise.All()
- * @see https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b?permalink_comment_id=3591045#gistcomment-3591045
- * 
- * @param {Array} queue Array of async functions to call
- * @param {number} concurrency Number of concurrent calls
- * @returns 
- */
-async function PromiseAll(queue, concurrency) {
-    let index = 0;
-    const results = [];
-  
-    // Run a pseudo-thread
-    const execThread = async () => {
-      while (index < queue.length) {
-        const curIndex = index++;
-        // Use of `curIndex` is important because `index` may change after await is resolved
-        results[curIndex] = await queue[curIndex]();
-      }
-    };
-  
-    // Start threads
-    const threads = [];
-    for (let thread = 0; thread < concurrency; thread++) {
-        threads.push(execThread());
-    }
-    await Promise.all(threads);
-    return results;
-};

@@ -61,7 +61,7 @@ async function test() {
     for (var i = 0; i < numberOfDatasets; i++) {
       promises.push(() => v.new(vData));
     }
-    var vids = await PromiseAll(promises, 5);
+    var vids = await Vaccinator.PromiseAll(promises, 5);
 
     console.log("Created VIDs: ", vids);
 
