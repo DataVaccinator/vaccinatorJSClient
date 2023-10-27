@@ -420,20 +420,9 @@ export namespace Vaccinator {
      * @private
      * @static
      * @param {string} text
-     * @returns {string} hex encoded
-     * @deprecated use {@link Vaccinator.__hash} instead.
-     */
-    function _hash(text: string): string;
-    /**
-     * Calculate SHA256 from some given string and
-     * return hex encoded hash.
-     *
-     * @private
-     * @static
-     * @param {string} text
      * @returns {Promise<string>} hex encoded
      */
-    function __hash(text: string): Promise<string>;
+    function _hash(text: string): Promise<string>;
     /**
      * Validates the checksum of the given app-id.
      *
