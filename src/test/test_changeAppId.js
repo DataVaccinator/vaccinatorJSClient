@@ -11,18 +11,15 @@ async function test() {
     //    10/2023 by VS
     const numberOfDatasets = 10;
 
-    /**@type {vData} */ // TODO: Umlaute & Sonderzeichen & Nur UTF-8
-    const vData = {
-            data: `{
-                "firstname":"Spongebob","lastname":"Square Pants",
-                "gender":"male","address_street":"Bikinistreet",
-                "address_number":"42","address_city":"${individualSearchterm}",
-                "address_zip":"12345","address_country":"Bikiniland",
-                "address_phone":"","address_mail":"spongebob@bikinibottom.water",
-                "company_location":"Crusty Krab","date_og_birth":"01.02.1992",
-                "profession":"Fry Cook","attending_physician":"Sandy Cheeks"
-            }`
-        }
+    const testData = `
+            "lastname":"Square Pants",
+            "gender":"male","address_street":"Bikinistreet",
+            "address_number":"42","address_city":"${individualSearchterm}",
+            "address_zip":"12345","address_country":"Bikiniland",
+            "address_phone":"","address_mail":"spongebob@bikinibottom.water",
+            "company_location":"Crusty Krab","date_og_birth":"01.02.1992",
+            "profession":"Fry Cook","attending_physician":"Sandy Cheeks"
+        }`
         , nonSense = 'nonsense';
 
     const v = new Vaccinator({
@@ -59,10 +56,15 @@ async function test() {
     // }
     // var vids = await Promise.all(promises)
 
-    // Using pAll promise helper function -> Max 5 calls at the same time. Even > 2000 datasets are no problem.
+    // Using promise helper function -> Max 25 calls at the same time. 
+    // Even 20000 datasets are no problem.
     var promises = []; // array of function calls
+    var no = 0;
     for (var i = 0; i < numberOfDatasets; i++) {
-      promises.push(() => v.new(vData));
+        promises.push(async () => {
+            no++;
+            return await v.new(`{ "firstname":"${no}Spongebob", ` + testData);
+        });
     }
     var vids = await Vaccinator.PromiseAll(promises, 25); // max 25 promises at once
 
@@ -71,7 +73,10 @@ async function test() {
     // do some test searching
     _headline("search in original data");
     await _test(() => v.search(individualSearchterm), r => r.length == vids.length, 'Wrong number of results! (Clear DV vault DB?)');
-    await _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
+    await _test(() => v.search(nonSense), r => r.length == 0, 'Searching nonsense should not return something!');
+    for (var i = 1; i <= numberOfDatasets; i++) {
+        await _test(() => v.search(`${i}Spong`), r => r.length == 1, `Search for '${i}Spong' should return one(!) match`);
+    }
 
     // do some test get
     _headline("get original data");
@@ -86,6 +91,9 @@ async function test() {
     _headline("search in changed data");
     await _test(() => v.search(individualSearchterm), r => r.length == vids.length, 'Wrong number of results! (Clear DV vault DB?)');
     await _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
+    for (var i = 1; i <= numberOfDatasets; i++) {
+        await _test(() => v.search(`${i}Spong`), r => r.length == 1, `Search for '${i}Spong' should return one(!) match`);
+    }
     
     // do some test get
     _headline("get changed data (using cache if available)");

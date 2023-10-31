@@ -85,9 +85,13 @@ declare class Vaccinator {
      * @type {any} */
     private _db;
     /**
-     * After you called the {@link get} function, this property contains an array with the vids that were retrieved from the local cache.
-     * If this counts 0 (empty array), all data was requested from the server.
+     * After you called the {@link get} function, this property contains
+     * an array with the vids that were retrieved from the local cache.
+     * If this counts 0 (empty array), all data was requested from the
+     * server.
+     *
      * It allows you to verify cache usage.
+     *
      * @public
      */
     public fromCache: any[];
@@ -252,7 +256,7 @@ declare class Vaccinator {
      * Quickly returns empty array if search functionality is not used.
      *
      * @private
-     * @param {VData} vData
+     * @param {string} PID
      * @returns {Promise<Array<string>>} searchwords
      */
     private _getSearchWords;
@@ -266,7 +270,7 @@ declare class Vaccinator {
      * Raw new function. Wrapped an called by {@link new} & {@link publish}.
      *
      * @private
-     * @param {VData} vData
+     * @param {string} PID
      * @param {{password:string, duration:number}?} publish
      * @returns {Promise<string>} New created vid.
      */
@@ -274,16 +278,19 @@ declare class Vaccinator {
     /**
      * Create a new VID entry.
      *
-     * The vaccinationData is VID in some JSON encoded dataset. It may contain personal information of a person (VID). This is returned later by the {@link get} function.
+     * The vaccinationData is VID in some JSON encoded dataset.
+     * It may contain personal information of a person (VID).
+     * This is returned later by the {@link get} function.
      *
-     * @param {VData} vData
+     * @param {string} PID
      * @returns {Promise<string>} New created vid.
      */
-    new(vData: VData): Promise<string>;
+    new(PID: string): Promise<string>;
     /**
      * Returns the app-id that is currently in use.
      *
      * If no app-id is available or on storage failure, it throws an error!
+     *
      * @param {boolean} force If true, the key will we be forced to read from database instead from possible cached value. Default is `false`.
      * @returns {Promise<string>} app-id
      */
@@ -291,19 +298,19 @@ declare class Vaccinator {
     /**
      * Create a new VID entry for publishing.
      *
-     * @param {VData} vData
+     * @param {string} PID
      * @param {string} password
      * @param {number} duration
      * @returns {Promise<string>} New created vid.
      */
-    publish(vData: VData, password: string, duration: number): Promise<string>;
+    publish(PID: string, password: string, duration: number): Promise<string>;
     /**
      * Update vaccinationData of an existing VID entry.
      *
      * @param {string} vid
-     * @param {VData} vData
+     * @param {string} PID
      */
-    update(vid: string, vData: VData): Promise<void>;
+    update(vid: string, PID: string): Promise<void>;
     /**
      * Delete the given entry.
      *
@@ -313,8 +320,11 @@ declare class Vaccinator {
     /**
      * Retrieve the vaccinationData of one or more given VID.
      *
-     * The submitted VID is the identifying Vaccination ID (previously returned by {@link new}).
-     * Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
+     * The submitted VID is the identifying Vaccination ID
+     * (previously returned by {@link new}).
+     *
+     * Multiple VIDs can be submitted as array with multiple
+     * VIDs or a string with multiple VIDs divided by blank.
      *
      * @param {string|string[]} vids
      * @param {boolean} force If true, the key will we be forced to read from server instead from possible cached value. Default is `false`.
@@ -344,6 +354,7 @@ declare class Vaccinator {
      * For whatever reason, if the app-id is changing for a user, then all entries in identity management need to become re-encrypted.
      * Obviously, this is not to be done on identity management place to protect the data.
      * So it must be done locally.
+     *
      * @param {string|string[]} vids
      * @param {string} oldAppId
      * @param {string} newAppId
@@ -371,7 +382,7 @@ declare class Vaccinator {
      * Will throw an error on storage failure!
      * @private
      * @param {string} vid
-     * @param {VData} vData
+     * @param {string} PID
      * @returns {Promise<void>}
      */
     private _storeCache;
@@ -432,6 +443,15 @@ export namespace Vaccinator {
      * @returns {Promise<boolean>}
      */
     function validateAppId(appId: string): Promise<boolean>;
+    /**
+     * Enhanced promise pool handler as replacement for Promise.All()
+     * @see https://gist.github.com/jcouyang/632709f30e12a7879a73e9e132c0d56b?permalink_comment_id=3591045#gistcomment-3591045
+     *
+     * @param {Array} queue Array of async functions to call
+     * @param {number} concurrency Number of concurrent calls
+     * @returns
+     */
+    function PromiseAll(queue: any[], concurrency: number): Promise<any[]>;
 }
 export type DvConfig = {
     /**

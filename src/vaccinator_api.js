@@ -137,16 +137,21 @@ class Vaccinator {
          * @type {any} */
         this._db;
         /**
-         * After you called the {@link get} function, this property contains an array with the vids that were retrieved from the local cache.
-         * If this counts 0 (empty array), all data was requested from the server.
+         * After you called the {@link get} function, this property contains 
+         * an array with the vids that were retrieved from the local cache.
+         * If this counts 0 (empty array), all data was requested from the 
+         * server.
+         * 
          * It allows you to verify cache usage.
+         * 
          * @public
          */
         this.fromCache = [];
 
         // value check
         if(!this._serviceUrl || !this._userIdentifier) {
-            throw this._onError(new EvalError('constructor: serviceUrl and userIdentifier parameters are mandatory'), kVaccinatorInvalidErrorCode);
+            throw this._onError(new EvalError('constructor: serviceUrl and userIdentifier parameters are mandatory'), 
+                kVaccinatorInvalidErrorCode);
         }
     }
 
@@ -161,7 +166,8 @@ class Vaccinator {
             if (await Vaccinator.validateAppId(this._appId)) {
                 this._saveAppId(this._appId);
             } else {
-                throw this._onError(new EvalError('init: provided appId is not valid'), kVaccinatorInvalidErrorCode);
+                throw this._onError(new EvalError('init: provided appId is not valid'), 
+                    kVaccinatorInvalidErrorCode);
             }
         }
 
@@ -257,6 +263,12 @@ class Vaccinator {
             xhr.open(method, this._serviceUrl, true);
             xhr.timeout = kXhrTimeout;
             xhr.ontimeout = xhr.onerror = e => {
+                /** VS (10/2023): 
+                 * The below test was not working in Firefox? 
+                 * I found no way to test for XMLHttpRequestProgressEvent as it was
+                 * unknown to Firefox at all?
+                 */
+
                 // if(e instanceof XMLHttpRequestProgressEvent) { // XMLHttpRequestProgressEvent has a weird toString output, so we need to log the error directly into the console.
                 //    console.error(e);
                 //    reject(this._onError(`XMLHttpRequestProgressEvent: Request failed! Inspect previous error log.`));
@@ -357,7 +369,11 @@ class Vaccinator {
 
         this._debug(this._debugging && `_encrypt: Encrypt with key [${this._buf2hex(await window.crypto.subtle.exportKey("raw", key))}] and iv [${this._buf2hex(iv)}]`);
 
-        const cipher = new Uint8Array(await window.crypto.subtle.encrypt({name: 'AES-GCM', iv: iv}, key, Vaccinator._string2buffer(data)));
+        const cipher = new Uint8Array(
+            await window.crypto.subtle.encrypt(
+                {name: 'AES-GCM', iv: iv}, key, Vaccinator._string2buffer(data)
+            )
+        );
 
         return `aes-256-gcm${addChecksum ? `:${addChecksum}` : ''}:${this._buf2hex(iv)}:${this._buf2hex(cipher)}`;
     }
@@ -386,7 +402,8 @@ class Vaccinator {
         }
         const cipherMode = parts[0];
         if (cipherMode !== "aes-256-cbc" && cipherMode !== "aes-256-gcm") {
-            throw this._onError(`_decrypt: unknown crypto recipt [${parts[0]}]`, kVaccinatorInvalidErrorCode);
+            throw this._onError(`_decrypt: unknown crypto recipt [${parts[0]}]`, 
+                kVaccinatorInvalidErrorCode);
         }
 
         if (verifyChecksum && verifyChecksum !== parts[1]) {
@@ -517,25 +534,26 @@ class Vaccinator {
      * Quickly returns empty array if search functionality is not used.
      *
      * @private
-     * @param {VData} vData
+     * @param {string} PID
      * @returns {Promise<Array<string>>} searchwords
      */
-    async _getSearchWords(vData) {
+    async _getSearchWords(PID) {
         if (!this._searchFields.length) {
             return [];
         }
 
         let data;
 
-        if (!(vData.data instanceof Object)) {
+        if (!(PID instanceof Object)) {
             // convert to object
             try {
-                data = JSON.parse(vData.data);
+                data = JSON.parse(PID);
             } catch (error) {
-                throw this._onError(new EvalError(`vData.data is neither a valid json-string nor a valid json-object! [${error} : ${vData.data}]`), kVaccinatorInvalidErrorCode);
+                throw this._onError(new EvalError(`PID is neither a valid json-string nor a valid json-object! [${error} : ${PID}]`), 
+                    kVaccinatorInvalidErrorCode);
             }
         } else {
-            data = vData.data;
+            data = PID;
         }
 
 
@@ -575,38 +593,40 @@ class Vaccinator {
      * Raw new function. Wrapped an called by {@link new} & {@link publish}.
      *
      * @private
-     * @param {VData} vData
+     * @param {string} PID
      * @param {{password:string, duration:number}?} publish
      * @returns {Promise<string>} New created vid.
      */
-    async _new(vData, publish) {
+    async _new(PID, publish) {
         if(publish) { // value check
             if(!publish.password || !publish.duration) {
-                throw this._onError(new EvalError('new: While publishing, the password and the duration have to be set!'), kVaccinatorInvalidErrorCode);
+                throw this._onError(new EvalError('new: While publishing, the password and the duration have to be set!'), 
+                    kVaccinatorInvalidErrorCode);
             }
             if(!publish.duration || publish.duration < 1 || publish.duration > 365) {
-                throw this._onError(new RangeError('new: The duration is out of rannge!'), kVaccinatorInvalidErrorCode);
+                throw this._onError(new RangeError('new: The duration is out of rannge!'), 
+                    kVaccinatorInvalidErrorCode);
             }
         }
 
-        if(!vData || !vData.data) {
-            throw this._onError(new EvalError("new: vData parameter is mandatory"), kVaccinatorInvalidErrorCode);
+        if(!PID) {
+            throw this._onError(new EvalError("new: PID parameter is mandatory"), kVaccinatorInvalidErrorCode);
         }
 
         const appId = await this.getAppId();
         let operation, payload;
         if(publish) {
             operation = 'publish';
-            payload = await this._encrypt(vData.data, await this._string2cryptoKey(publish.password));
+            payload = await this._encrypt(PID, await this._string2cryptoKey(publish.password));
         } else {
             operation = 'add';
-            payload = await this._encrypt(vData.data, await this._getCryptoKey(), appId.slice(-kChecksumLength));
+            payload = await this._encrypt(PID, await this._getCryptoKey(), appId.slice(-kChecksumLength));
         }
 
         let result = await this._fetch({method: 'POST', body: {
             op: operation,
             data: payload,
-            words: await this._getSearchWords(vData),
+            words: await this._getSearchWords(PID),
             duration: publish?.duration
         }});
         result = JSON.parse(result);
@@ -615,7 +635,7 @@ class Vaccinator {
                 this._debug(this._debugging && `new: Returning new published VID [${result.vid}]`);
                 return result.vid;
             } else {
-                await this._storeCache(result.vid, vData);
+                await this._storeCache(result.vid, PID);
                 this._debug(this._debugging && `new: Returning new VID [${result.vid}]`);
                 return result.vid;
             }
@@ -627,19 +647,22 @@ class Vaccinator {
     /**
      * Create a new VID entry.
      *
-     * The vaccinationData is VID in some JSON encoded dataset. It may contain personal information of a person (VID). This is returned later by the {@link get} function.
+     * The vaccinationData is VID in some JSON encoded dataset. 
+     * It may contain personal information of a person (VID). 
+     * This is returned later by the {@link get} function.
      *
-     * @param {VData} vData
+     * @param {string} PID
      * @returns {Promise<string>} New created vid.
      */
-    async new(vData) {
-        return this._new(vData);
+    async new(PID) {
+        return this._new(PID);
     }
 
     /**
      * Returns the app-id that is currently in use.
      *
      * If no app-id is available or on storage failure, it throws an error!
+     * 
      * @param {boolean} force If true, the key will we be forced to read from database instead from possible cached value. Default is `false`.
      * @returns {Promise<string>} app-id
      */
@@ -663,24 +686,25 @@ class Vaccinator {
     /**
      * Create a new VID entry for publishing.
      *
-     * @param {VData} vData
+     * @param {string} PID
      * @param {string} password
      * @param {number} duration
      * @returns {Promise<string>} New created vid.
      */
-    async publish(vData, password, duration) {
-        return this._new(vData, {password: password, duration: duration});
+    async publish(PID, password, duration) {
+        return this._new(PID, {password: password, duration: duration});
     }
 
     /**
      * Update vaccinationData of an existing VID entry.
      *
      * @param {string} vid
-     * @param {VData} vData
+     * @param {string} PID
      */
-    async update(vid, vData) {
-        if(!vid || !vData || !vData.data) {
-            throw this._onError('update: vid and vData parameter are mandatory', kVaccinatorInvalidErrorCode);
+    async update(vid, PID) {
+        if(!vid || !PID) {
+            throw this._onError('update: vid and PID parameter are mandatory', 
+                kVaccinatorInvalidErrorCode);
         }
 
         const aid = await this.getAppId();
@@ -688,12 +712,12 @@ class Vaccinator {
         let result = await this._fetch({method: 'POST', body: {
             op: "update",
             vid: vid,
-            data: await this._encrypt(vData.data, await this._getCryptoKey(), aid.slice(-2)),
-            words: await this._getSearchWords(vData)
+            data: await this._encrypt(PID, await this._getCryptoKey(), aid.slice(-2)),
+            words: await this._getSearchWords(PID)
         }});
         result = JSON.parse(result);
         if(result.status === 'OK') {
-            await this._storeCache(vid, vData);
+            await this._storeCache(vid, PID);
             this._debug(this._debugging && `update: Returning updated VID [${vid}]`);
         } else {
             throw this._onError(result, kVaccinatorServiceErrorCode);
@@ -707,7 +731,8 @@ class Vaccinator {
      */
     async delete(vids) {
         if(!vids) {
-            throw this._onError('delete: vids parameter is mandatory', kVaccinatorInvalidErrorCode);
+            throw this._onError('delete: vids parameter is mandatory', 
+                kVaccinatorInvalidErrorCode);
         }
         vids = this._string2Array(vids);
 
@@ -731,8 +756,11 @@ class Vaccinator {
     /**
      * Retrieve the vaccinationData of one or more given VID.
      *
-     * The submitted VID is the identifying Vaccination ID (previously returned by {@link new}).
-     * Multiple VIDs can be submitted as array with multiple VIDs or a string with multiple VIDs divided by blank.
+     * The submitted VID is the identifying Vaccination ID 
+     * (previously returned by {@link new}). 
+     * 
+     * Multiple VIDs can be submitted as array with multiple
+     * VIDs or a string with multiple VIDs divided by blank.
      *
      * @param {string|string[]} vids
      * @param {boolean} force If true, the key will we be forced to read from server instead from possible cached value. Default is `false`.
@@ -740,7 +768,8 @@ class Vaccinator {
      */
     async get(vids, force = false) {
         if(!vids) {
-            throw this._onError(new EvalError('get: vids parameter is mandatory"'), kVaccinatorInvalidErrorCode);
+            throw this._onError(new EvalError('get: vids parameter is mandatory"'), 
+                kVaccinatorInvalidErrorCode);
         }
         const key = await this._getCryptoKey();
         if(!key) {
@@ -763,7 +792,7 @@ class Vaccinator {
                     continue;
                 }
                 this.fromCache.push(vid);
-                this._debug(this._debugging && `get: Retrieve cached vData for vid [${vid}]`);
+                this._debug(this._debugging && `get: Retrieve cached PID for vid [${vid}]`);
                 result.set(vid, { "status": "OK", "data": vDataContent });
             }
         }
@@ -774,7 +803,7 @@ class Vaccinator {
 
         await this.getAppId(); // ensure appid is in memory
 
-        this._debug(this._debugging && `get: Fetch vDatas from server [${(force ? vids : uncached).join(kVidStringSeperator)}]`);
+        this._debug(this._debugging && `get: Fetch PID from server [${(force ? vids : uncached).join(kVidStringSeperator)}]`);
 
         const chunks = this._chunk((force ? vids : uncached));
         for (const c of chunks) {
@@ -784,7 +813,7 @@ class Vaccinator {
             }});
             r = JSON.parse(r);
             if(r.status === 'OK') {
-                this._debug(this._debugging && `get: Successfully received vData. Processing...`);
+                this._debug(this._debugging && `get: Successfully received PID. Processing...`);
                 const data = r.data
                     , checksum = this._appId.slice(-kChecksumLength);
 
@@ -799,10 +828,10 @@ class Vaccinator {
 
                         try {
                             e.data = await this._decrypt(e.data, key, checksum);
-                            await this._storeCache(vid, e); // update local cache
+                            await this._storeCache(vid, e.data); // update local cache
                         } catch (error) {
                             console.error(`
-                                Unable to decrypt vData [${vid}] because used appId
+                                Unable to decrypt PID [${vid}] because used appId
                                 seems not the correct one or some crypto error occured!
                                 Origin error: [${error}]`
                             );
@@ -830,7 +859,8 @@ class Vaccinator {
      */
     async getPublished(vids, password) {
         if(!vids || !password) {
-            throw this._onError('getPublished: vids and password parameter is mandatory', kVaccinatorInvalidErrorCode);
+            throw this._onError('getPublished: vids and password parameter is mandatory', 
+                kVaccinatorInvalidErrorCode);
         }
         vids = this._string2Array(vids);
 
@@ -846,7 +876,7 @@ class Vaccinator {
 
             r = JSON.parse(r);
             if(r.status === 'OK') {
-                this._debug(this._debugging && "getPublished: Successfully received vData. Processing...");
+                this._debug(this._debugging && "getPublished: Successfully received PID. Processing...");
 
                 const data = r.data
                     , key = await this._string2cryptoKey(password);
@@ -864,7 +894,7 @@ class Vaccinator {
                             e.data = await this._decrypt(e.data, key);
                         } catch (error) {
                             console.error(`
-                                Unable to decrypt vData [${vid}] because used password
+                                Unable to decrypt PID [${vid}] because used password
                                 seems not the correct one or some crypto error occured!
                                 Origin error: [${error}]`
                             );
@@ -892,7 +922,8 @@ class Vaccinator {
      */
     async wipe(vids) {
         if(!vids) {
-            throw this._onError('wipe: vids parameter is mandatory', kVaccinatorInvalidErrorCode);
+            throw this._onError('wipe: vids parameter is mandatory', 
+                kVaccinatorInvalidErrorCode);
         }
         vids = this._string2Array(vids);
 
@@ -915,7 +946,8 @@ class Vaccinator {
      */
     async changeAppId(vids, oldAppId, newAppId) {
         if(!vids || !oldAppId || !newAppId) {
-            throw this._onError('changeAppId: vids, oldAppId, newAppId and password parameter are mandatory', kVaccinatorInvalidErrorCode);
+            throw this._onError('changeAppId: vids, oldAppId, newAppId and password parameter are mandatory', 
+                kVaccinatorInvalidErrorCode);
         }
         if(oldAppId !== this._appId) {
             throw this._onError('changeAppId: oldAppId must be identical to current appId');
@@ -940,10 +972,10 @@ class Vaccinator {
                     let pid = await this.get(vid);
                     let vData = pid?.get(vid);
                     if (vData?.status === "OK") {
-                        await tmpVaccinator.update(vid, vData);
+                        await tmpVaccinator.update(vid, vData.data);
                         affectedCount++;
                     } else {
-                        console.warn(`Failed retrieving vData for VID [${vid}: ${vData}] (no data, already processed?).`);
+                        console.warn(`Failed retrieving PID for VID [${vid}: ${vData}] (no data, already processed?).`);
                     }
                 });
             }
@@ -1032,14 +1064,14 @@ class Vaccinator {
      * Will throw an error on storage failure!
      * @private
      * @param {string} vid
-     * @param {VData} vData
+     * @param {string} PID
      * @returns {Promise<void>}
      */
-    async _storeCache(vid, vData) {
+    async _storeCache(vid, PID) {
         if(!this._useCache) return;
 
-        await this._db.setItem(vid, vData.data)
-        this._debug(this._debugging && "_storeCache: Stored vData for VID " + vid + " in cache");
+        await this._db.setItem(vid, PID)
+        this._debug(this._debugging && "_storeCache: Stored PID for VID " + vid + " in cache");
     }
 
     /**
@@ -1055,7 +1087,7 @@ class Vaccinator {
             return null;
         }
 
-        this._debug(this._debugging && `_retrieveCache: Retrieve vData for VID ${vid} from cache`);
+        this._debug(this._debugging && `_retrieveCache: Retrieve PID for VID ${vid} from cache`);
 
         const ret = await this._db.getItem(vid);
         if (ret === undefined) { 
@@ -1133,7 +1165,9 @@ Vaccinator._buffer2string = (bytes) => {
  * @returns {Promise<string>} hex encoded
  */
 Vaccinator._hash = async (text) => {
-    const shaBuffer = new Uint8Array(await window.crypto.subtle.digest('SHA-256', Vaccinator._string2buffer(text)));
+    const shaBuffer = new Uint8Array(
+        await window.crypto.subtle.digest('SHA-256', Vaccinator._string2buffer(text))
+    );
 
     const pad = '0' // memory optimizations
         , seperator = ''
@@ -1203,7 +1237,9 @@ const kVDataStoreName = 'vdata';
 /**
  * Database helper class to handle local storage via `indexedDB`.
  *
- * Don't create a new `DB` instance by your self. Use the {@link DB.createInstance} method instead and use {@link DB.instance} at runtime. See @example.
+ * Don't create a new `DB` instance by your self. 
+ * Use the {@link DB.createInstance} method instead and 
+ * use {@link DB.instance} at runtime. See @example.
  *
  * @example <caption>Creating an instance.</caption>
  * const db = await DB.createInstance();
@@ -1285,8 +1321,10 @@ class DB {
 
 
     /**
-     * Pipes the native `IDBOpenDBRequest` into a `Promise` and wraps it with the default success and error handlers.
-     * Only needed for the native `indexedBD` API calls like `transaction`, for example.
+     * Pipes the native `IDBOpenDBRequest` into a `Promise` 
+     * and wraps it with the default success and error handlers.
+     * Only needed for the native `indexedBD` API calls like 
+     * `transaction`, for example.
      *
      * @example <caption>Used for transactions.</caption>
      * const transaction = db.transaction('table') // returns native `indexedDB` API
@@ -1306,11 +1344,16 @@ class DB {
     /**
      * Returns a native `IDBTransaction`.
      *
-     * Hint: Use the static {@link DB.pipe} function to handle native calls like `Promise`s.
+     * Hint: Use the static {@link DB.pipe} function to handle 
+     *       native calls like `Promise`s.
      *
-     * Warning I: Transactions are auto-commited when the microtasks queue is empty an the current code finishes. Do not use async operations between!
+     * Warning I: Transactions are auto-commited when the microtasks
+     *            queue is empty an the current code finishes. 
+     *            Do not use async operations between!
      *
-     * Warning II: Only the native {@link IDBTransaction.oncomplete} guarantees that the transaction is saved as a whole. See @example.
+     * Warning II: Only the native {@link IDBTransaction.oncomplete} 
+     *             guarantees that the transaction is saved as a whole. 
+     *             See @example.
      *
      * @example
      * const transaction = db.transaction("table", "readwrite");
@@ -1342,7 +1385,8 @@ class DB {
     }
 
     /**
-     * Adds an entry to the database. If there’s already a value with the same key, it will be replaced.
+     * Adds an entry to the database. If there’s already a value
+     * with the same key, it will be replaced.
      *
      * @param {string} key
      * @param {any} value
