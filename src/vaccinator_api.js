@@ -499,7 +499,9 @@ class Vaccinator {
 
     /**
      * Generates the SearchHash from given word. If withRandom is true,
-     * zero to 5 random bytes are getting added. See search Plugin documentation.
+     * a zero byte is added, followed by random hex until the hash is a
+     * multiple of 16 characters in length.
+     * See searchHash documentation.
      *
      * @private
      * @param {string} word
@@ -516,10 +518,14 @@ class Vaccinator {
             h = await Vaccinator._hash(l + h + this._appId);
             searchHash += h.slice(0, 2);
         }
+
         if (withRandom) {
-            const c = Math.floor(Math.random() * 6);
-            // generate random hex bytes only (0-f), so we need double of c
-            for (let i = 0; i < c * 2; ++i) {
+            // add NULL byte hash
+            h = await Vaccinator._hash("\0" + h + this._appId);
+            searchHash += h.slice(0, 2);
+
+            // fill hash with random values until it is a multiple of 32 (16 bytes)
+            while (searchHash.length % 32 !== 0) {
                 searchHash += (Math.floor(Math.random() * 16)).toString(16);
             }
         }

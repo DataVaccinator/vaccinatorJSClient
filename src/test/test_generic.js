@@ -62,6 +62,12 @@ async function v2() {
     key = await v._getCryptoKey('AES-CBC'); // AES-CBC test
     await _test(() => v._decrypt(cbc, key), r => kText == r, 'Decrypted result does not match!');
 
+    // search hashes
+    // NOTE: This strongly depends on given appId!
+    _headline("searchHash");
+    await _test(() => v._searchHash("word", true), r => r.slice(0, 10) === "31739b1a26", 'Searchword hash failed!');
+    await _test(() => v._searchHash("word", false), r => r === "31739b1a", 'Searchword hash failed!');
+
     // test helper
     _headline("helper");
     await _test(() => v._generateRandom(16), r => ((tmp = r) && r.byteLength == 16), 'Array should be the same length!');
@@ -118,10 +124,13 @@ async function v2() {
     _headline("search");
     await _test(() => v.search('pat'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
     await _test(() => v.search(nonSense), r => r.length == 0, 'Wrong number of results!');
-    await _test(() => v.search('patr sta'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
+    await _test(() => v.search('patr sta'), r => r.length == 1, 'Wrong number of results! ');
     await _test(() => v.search('patr tes'), r => r.length == 0, 'Wrong number of results!');
-    await _test(() => v.search('Bikini Street'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
-    await _test(() => v.search('Dr. Patrick'), r => r.length == 1, 'Wrong number of results! (Clear DV vault DB?)');
+    await _test(() => v.search('Bikini Street'), r => r.length == 1, 'Wrong number of results!');
+    await _test(() => v.search('Dr. Patrick'), r => r.length == 1, 'Wrong number of results!');
+    await _test(() => v.search('Star'), r => r.length == 1, 'Wrong number of results!');
+    await _test(() => v.search(`Star\0`), r => r.length == 1, 'Wrong number of results!');
+    await _test(() => v.search('Start'), r => r.length == 0, 'Wrong number of results!');
 
     // wipe
     if (v._useCache) {
