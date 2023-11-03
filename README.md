@@ -17,7 +17,7 @@ The DataVaccinator protects your sensitive data and information against abuse. A
 
 Get more information at <https://www.datavaccinator.com>
 
-# DevOps
+# DevOps intellisense
 
 To regenerate the declaration file of the _vaccinator_api.js_, run the following makefile in the _/src/_ directory:
 ```sh
@@ -29,3 +29,11 @@ If the _tsc_ command is not available, you need the npm "typescript" package ins
 npm i -g typescript
 ```
 For more inforamtion about npm, head over to https://www.npmjs.com
+
+To finally use the declarations to allow your IDE providing intellisense, you can add the following on top of your JavaScript files:
+
+```html
+/// <reference path="<pathTo>/vaccinator_api.d.ts" />
+```
+
+Source: https://devblogs.microsoft.com/dotnet/jscript-intellisense-a-reference-for-the-reference-tag/
