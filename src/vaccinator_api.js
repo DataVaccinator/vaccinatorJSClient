@@ -986,7 +986,7 @@ class Vaccinator {
                 });
             }
 
-            await Vaccinator.PromiseAll(promises, 25); // max 25 promises at once
+            await Vaccinator._promiseAll(promises, 25); // max 25 promises at once
 
             await this._saveAppId(newAppId);
             resolve(affectedCount);
@@ -1213,7 +1213,7 @@ Vaccinator.validateAppId = async (appId) => {
  * @param {number} concurrency Number of concurrent calls
  * @returns 
  */
-Vaccinator.PromiseAll = async (queue, concurrency) => {
+Vaccinator._promiseAll = async (queue, concurrency) => {
     let index = 0;
     const results = [];
   

@@ -48,16 +48,19 @@ async function test() {
     // create numberOfDatasets new entries
     _headline("Creating "+numberOfDatasets+" payload datasets with existing old appId");
     
-    // Using Promises.All() -> All at the same time. With > 500 datasets, webbrowser may fail!
+    /*
+    // Using Promises.All() -> All at the same time. 
+    // Warning: With > 500 datasets, webbrowser start to fail!
     
-    // var promises = Array(); // array of promises
-    // for (var i = 0; i < numberOfDatasets; i++) {
-    //   promises.push(v.new(vData));
-    // }
-    // var vids = await Promise.all(promises)
+    var promises = Array(); // array of promises
+    for (var i = 0; i < numberOfDatasets; i++) {
+      promises.push(v.new(vData));
+    }
+    var vids = await Promise.all(promises)
+    */
 
-    // Using promise helper function -> Max 25 calls at the same time. 
-    // Even 20000 datasets are no problem.
+    // Using promise helper function -> Max 25 promise calls at the same time. 
+    // Even 20.000 datasets are no problem like this.
     var promises = []; // array of function calls
     var no = 0;
     for (var i = 0; i < numberOfDatasets; i++) {
@@ -66,7 +69,7 @@ async function test() {
             return await v.new(`{ "firstname":"${no}Spongebob", ` + testData);
         });
     }
-    var vids = await Vaccinator.PromiseAll(promises, 25); // max 25 promises at once
+    var vids = await Vaccinator._promiseAll(promises, 25); // max 25 promises at once
 
     console.log("Created VIDs: ", vids);
 
