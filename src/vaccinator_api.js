@@ -1222,7 +1222,12 @@ Vaccinator._promiseAll = async (queue, concurrency) => {
       while (index < queue.length) {
         const curIndex = index++;
         // Use of `curIndex` is important because `index` may change after await is resolved
-        results[curIndex] = await queue[curIndex]();
+        try {
+            results[curIndex] = await queue[curIndex]();
+        } catch(err) {
+            console.error(err);
+            results[curIndex] = err;
+        }
       }
     };
   
