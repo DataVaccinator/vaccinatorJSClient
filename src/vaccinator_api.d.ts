@@ -242,7 +242,9 @@ declare class Vaccinator {
     private _chunk;
     /**
      * Generates the SearchHash from given word. If withRandom is true,
-     * zero to 5 random bytes are getting added. See search Plugin documentation.
+     * a zero byte is added, followed by random hex until the hash is a
+     * multiple of 16 characters in length.
+     * See searchHash documentation.
      *
      * @private
      * @param {string} word
@@ -451,7 +453,7 @@ export namespace Vaccinator {
      * @param {number} concurrency Number of concurrent calls
      * @returns
      */
-    function PromiseAll(queue: any[], concurrency: number): Promise<any[]>;
+    function _promiseAll(queue: any[], concurrency: number): Promise<any[]>;
 }
 export type DvConfig = {
     /**
