@@ -6,9 +6,6 @@ This repository includes the JavaScript class and all files to be included for u
 > [!IMPORTANT]  
 > Please note that this is not usable without any DataVaccinator Vault installation. See https://github.com/DataVaccinator/dv-vault for the server sourcecode.
 
-> [!WARNING]  
-> The master branch is in development. Please use the stable branches for production!
-
 If you like to get more details, please contact us at info@datavaccinator.com.
 
 # What is it good for?
@@ -19,7 +16,7 @@ Get more information at <https://www.datavaccinator.com>
 
 # DevOps intellisense
 
-To regenerate the declaration file of the _vaccinator_api.js_, run the following makefile in the _/src/_ directory:
+To regenerate the declaration file of the _vaccinator_api.js_, run the following makefile in the _/src/_ directory (Linux):
 ```sh
 make ts
 ```
