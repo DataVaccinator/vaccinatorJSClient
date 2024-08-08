@@ -154,7 +154,7 @@ The *force* option allows you to override the local cache and forces a request t
 
 The returned payload is an associative object array with the *VID* as key and some object as value. The value object is having two fields: *status* (OK or NOTFOUND) and *data* (the Vaccination Data). If *status* is NOTFOUND, data is false.
 
-This is a typical object array response like displayed in Firefox console:
+This is a typical MAP object response like displayed in Firefox console:
 
 [source]
 ----
@@ -175,9 +175,14 @@ Access the results like in this example:
 [source,javascript]
 ----
 var vid = '0d52f1b0a314fba7d45e87ca5bf5e654';
-var status = result[vid]['status'];
+var result = result.get(vid); // get object from MAP
+var pStatus = result.status; // -> OK
+var pData = result.data; // -> {\"fn\":\"Spongebob\",\"ln\":\"Squarepants\"}
 ----
+HINT:
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map#examples[Reference for using MAPs in JavaScript]
 |=======
+
 
 === delete
 
